@@ -1,8 +1,6 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
-
 #include <stdio.h>
-
 
 
 int _ConvertSMVer2Cores(int major, int minor) {
@@ -50,14 +48,13 @@ int _ConvertSMVer2Cores(int major, int minor) {
 //get cuda card properties
 cudaError_t cardProperties()
 {
-    cudaError_t cudaStatus;
+    cudaError_t cudaStatus = cudaSuccess;
     int deviceCount;
     cudaGetDeviceCount(&deviceCount);
 
     printf("Number of CUDA devices: %d\n", deviceCount);
 
     for (int dev = 0; dev < deviceCount; dev++) {
-
         cudaDeviceProp deviceProp;
         cudaGetDeviceProperties(&deviceProp, dev);
 
@@ -74,8 +71,7 @@ cudaError_t cardProperties()
     return cudaStatus;
 }
 
-
-int main()
+int main(int argc, char** argv)
 {
     cudaError_t cudaStatus = cardProperties();
 
@@ -83,7 +79,6 @@ int main()
         fprintf(stderr, "addWithCuda failed!");
         return 1;
     }
-
 
     // cudaDeviceReset must be called before exiting in order for profiling and
     // tracing tools such as Nsight and Visual Profiler to show complete traces.
