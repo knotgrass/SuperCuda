@@ -5,10 +5,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "C/C++: g++ build and debug active file",
+            "name": "C/C++: nvcc build and debug active file",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${fileDirname}/bin/${fileBasenameNoExtension}",
+            "program": "${fileDirname}/../bin/${fileBasenameNoExtension}.out",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
@@ -28,7 +28,7 @@
                     "ignoreFailures": true
                 }
             ],
-            "preLaunchTask": "C/C++: g++ build active file"
+            "preLaunchTask": "C/C++: nvcc build active file"
           }
     ]
 }

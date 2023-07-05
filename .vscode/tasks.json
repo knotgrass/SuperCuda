@@ -3,22 +3,24 @@
     "tasks": [
         {
             "type": "cppbuild",
-            "label": "C/C++: g++ build active file",
-            "command": "/usr/bin/g++",
+            "label": "C/C++: nvcc build active file",
+            "command": "${env:CONDA_PREFIX}/envs/cxx/bin/nvcc",
             "args": [
-                "-fdiagnostics-color=always", "-std=c++17", "-g",
-                "${file}", "-o", "${fileDirname}/bin/${fileBasenameNoExtension}",
-                "-pthread",
-                "-I", "${CONDA_PREFIX}/envs/cxx/include",
+                "-allow-unsupported-compiler", // gnu later v11
+                "${file}", "-o", "${fileDirname}/../bin/${fileBasenameNoExtension}.out",
+
             ],
             "options": {
                 "cwd": "${fileDirname}"
             },
             "problemMatcher": [
-                "$gcc"
+                "$nvcc"
             ],
-            "group": "build",
-            "detail": "compiler: /usr/bin/g++"
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "detail": "compiler: ${env:CONDA_PREFIX}/envs/cxx/bin/nvcc"
         }
     ]
 }
