@@ -6,6 +6,9 @@
 
 
 __global__ void vector_add(float *out, float *a, float *b, int n) {
+    // printf("threadIdx.x = %d\n", threadIdx.x); // index of thread inside the block
+    // printf("blockIdx.x = %d\n", blockIdx.x);  // index of block in the grid
+    // printf("blockDim.x = %d\n", blockDim.x); // number of threads in the block
     for(int i = 0; i < n; i++){
         out[i] = a[i] + b[i];
     }
