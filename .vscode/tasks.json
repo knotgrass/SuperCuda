@@ -8,7 +8,8 @@
             "args": [
                 "-allow-unsupported-compiler", // gnu later v11
                 "${file}", "-o", "${fileDirname}/../bin/${fileBasenameNoExtension}.out",
-
+                "-I${workspaceFolder}/third_party/cudnn-linux-x86_64-8.9.2.26_cuda11-archive/include",
+                "-L${workspaceFolder}/third_party/cudnn-linux-x86_64-8.9.2.26_cuda11-archive/lib"
             ],
             "options": {
                 "cwd": "${fileDirname}"

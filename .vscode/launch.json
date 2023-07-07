@@ -15,7 +15,7 @@
             "environment": [
                 {
                     "name": "LD_LIBRARY_PATH",
-                    "value": "/home/tz/anaconda3/envs/cxx/lib"
+                    "value": "/home/tz/anaconda3/envs/cxx/lib:${workspaceFolder}/third_party/cudnn-linux-x86_64-8.9.2.26_cuda11-archive/lib"
                 }
             ],
             "externalConsole": false,
