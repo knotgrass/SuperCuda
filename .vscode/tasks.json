@@ -6,8 +6,9 @@
             "label": "C/C++: nvcc build active file",
             "command": "${env:CONDA_PREFIX}/envs/cxx/bin/nvcc",
             "args": [
+                "-g", "-G", // for debug host & device respectively
                 "-allow-unsupported-compiler", // gnu later v11
-                "-arch=compute_75",//to target a specific GPU architecture that supports ITS
+                "-arch=compute_75", //to target a specific GPU architecture that supports ITS
                 "--relocatable-device-code=true",
                 "${file}", "-o", "${fileDirname}/../bin/${fileBasenameNoExtension}.out",
                 "-I${workspaceFolder}/third_party/cudnn-linux-x86_64-8.9.2.26_cuda11-archive/include",
