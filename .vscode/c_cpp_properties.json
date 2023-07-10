@@ -5,10 +5,11 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "${CONDA_PREFIX}/envs/cxx/include",
-                "${CONDA_PREFIX}/envs/cxx/include/python3.10"
+                "${CONDA_PREFIX}/envs/cxx/include/python3.10",
+                "${workspaceFolder}/third_party/cudnn-linux-x86_64-8.9.2.26_cuda11-archive/include"
             ],
             "defines": [],
-            "compilerPath": "/usr/bin/g++",
+            "compilerPath": "${CONDA_PREFIX}/envs/cxx/bin/nvcc",
             "cStandard": "gnu17",
             "cppStandard": "gnu++17",
             "intelliSenseMode": "linux-gcc-x64"
