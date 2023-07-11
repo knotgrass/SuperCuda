@@ -7,6 +7,7 @@
             "command": "${env:CONDA_PREFIX}/envs/cxx/bin/nvcc",
             "args": [
                 "-g", "-G", // for debug host & device respectively
+                "-std=c++17",
                 "-allow-unsupported-compiler", // gnu later v11
                 "-arch=compute_75", //to target a specific GPU architecture that supports ITS
                 "--relocatable-device-code=true",
