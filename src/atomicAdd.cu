@@ -22,7 +22,7 @@ __host__ void vectorSum_cpu(float* arr, int size){
 
     float cpu_sum = std::accumulate(vals.cbegin(), vals.cend(), 0.0f);
     std::cout << "Computed CPU value= "<< cpu_sum << std::endl;
-    assert(fabs(cpu_sum - float(size) <= 1e-6));
+    assert(fabs(cpu_sum - float(size)) <= 1e-6);
 }
 
 
