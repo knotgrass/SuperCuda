@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cuda_runtime_api.h>
 #include <mma.h>
+#include <assert.h>
 
 #ifndef SAMPLES_UTIL_INCLUDED
 #define SAMPLES_UTIL_INCLUDED
@@ -194,6 +195,22 @@ namespace samplesutil {
 	    cudaMalloc((void**)dValsPtr, sizeof(float) * N);
 	    // Expliclity copy the inputs from the CPU to the GPU
 	    cudaMemcpy(*dValsPtr, vals.data(), sizeof(float) * N, cudaMemcpyHostToDevice);
+    }
+
+    static __host__ void fillNumbersCPUGPU(
+        unsigned int N, std::vector<float>& vals, float** dValsPtr, float value
+    ) {
+        std::cout << "\nExpected value: " << value * N << "\n" << std::endl;
+        vals.resize(N);
+        for(int i = 0; i < N; ++i)
+            vals[i] = value;
+
+        cudaMalloc((void**)dValsPtr, sizeof(float) * N);
+        cudaMemcpy(*dValsPtr, vals.data(), sizeof(float) * N, cudaMemcpyHostToDevice);
+
+        for (int i=0;i<N;i++){
+            assert(std::fabs(vals[i] - 1.0) <= 1e-6);
+        }
     }
 
     // Define an unsigned integer variable that the GPU can work with
