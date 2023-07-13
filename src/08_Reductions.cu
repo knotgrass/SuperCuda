@@ -9,6 +9,29 @@
 #include <numeric>
 #include <iomanip>
 #include "include/utility.cuh"
+using namespace std::chrono;
+
+
+__host__ void reduce_ForloopCpu(std::vector<float> vals, const int size) {
+    float total = 0.0f;
+    const auto start = system_clock::now();
+    // for(float elem:vals) total += elem;
+    // for (std::vector<float>::iterator i=vals.begin(); i != vals.end(); i++) total += *i;
+    for (int i=0; i<size; i++) total += vals[i];
+    const auto stop = system_clock::now();
+    const auto runt = 1000.f * duration_cast<duration<float>>(stop - start).count();
+    std::cout << std::setw(20) << "for loop" << "\t" << runt << "ms \t" << total << std::endl;
+}
+
+
+__host__ void reduce_accumulateCpu(std::vector<float> vals, const int size){
+    float total = 0.0f;
+    const auto start = system_clock::now();
+    total = std::accumulate(vals.cbegin(), vals.cend(), 0.0f);
+    const auto stop = system_clock::now();
+    const auto runt = 1000.f * duration_cast<duration<float>>(stop - start).count();
+    std::cout << std::setw(20) << "accumulate" << "\t" << runt << "ms \t" << total << std::endl;
+}
 
 // Declare a GPU-visible floating point variable in global memory.
 __device__ float dResult;
@@ -242,19 +265,18 @@ int main(int argc, char** argv)
     constexpr unsigned int BLOCK_SIZE = 256;
     constexpr unsigned int WARMUP_ITERATIONS = 10;
     constexpr unsigned int TIMING_ITERATIONS = 20;
-    constexpr unsigned int N = 16'777'200;
+    constexpr unsigned int N = 16'777'217;
 
     std::cout << "Fill all inputs contain 1.f ...\n" << std::endl;
     std::vector<float> vals;
     float *dValsPtr;
-    samplesutil::prepareRandomNumbersCPUGPU(N, vals, &dValsPtr);
-    // samplesutil::fillNumbersCPUGPU(N, vals, &dValsPtr, 1.f);
+    // samplesutil::prepareRandomNumbersCPUGPU(N, vals, &dValsPtr);
+    samplesutil::fillNumbersCPUGPU(N, vals, &dValsPtr, 1.f);
 
     std::cout << "==== CPU Reduction ====\n" << std::endl;
     // A reference value is computed by sequential reduction
-    std::cout << "Computed CPU value: "
-              << std::accumulate(vals.cbegin(), vals.cend(), 0.0f) << std::endl;
-
+    reduce_ForloopCpu(vals, N);
+    reduce_accumulateCpu(vals, N);
     std::cout << "==== GPU Reductions ====\n" << std::endl;
     /*
      Set up a collection of reductions to evaluate for performance.
@@ -280,7 +302,7 @@ int main(int argc, char** argv)
 
         // Synchronize to ensure CPU only records time after warmup is done
         cudaDeviceSynchronize();
-        const auto before = std::chrono::system_clock::now();
+        const auto before = system_clock::now();
 
         float result = 0.0f;
         // Run several iterations to get an average measurement
@@ -295,8 +317,8 @@ int main(int argc, char** argv)
         cudaMemcpyFromSymbol(&result, dResult, sizeof(float));
 
         // Can measure time without an extra synchronization
-        const auto after = std::chrono::system_clock::now();
-        const auto elapsed = 1000.f * std::chrono::duration_cast<std::chrono::duration<float>>(after - before).count();
+        const auto after = system_clock::now();
+        const auto elapsed = 1000.f * duration_cast<duration<float>>(after - before).count();
         std::cout << std::setw(20) << name << "\t" << elapsed / TIMING_ITERATIONS << "ms \t" << result << std::endl;
     }
 
