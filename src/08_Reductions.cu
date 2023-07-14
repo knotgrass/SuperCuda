@@ -1,6 +1,7 @@
 #include <cuda_runtime_api.h>
 #include <stdlib.h>
 #include <iostream>
+#include <thread>
 #include <vector>
 #include <random>
 #include <chrono>
@@ -31,6 +32,41 @@ __host__ void reduce_accumulateCpu(std::vector<float> vals, const int size){
     const auto stop = system_clock::now();
     const auto runt = 1000.f * duration_cast<duration<float>>(stop - start).count();
     std::cout << std::setw(20) << "accumulate" << "\t" << runt << "ms \t" << total << std::endl;
+}
+
+
+inline float sumVector(const std::vector<float>& v, int start, int end) {
+    float total = 0.0f;
+    for (int i=start; i< end; ++i)
+        total += v[i];
+    return total;
+    // return std::accumulate(v.begin() + start, v.begin() + end, 0.0f);
+}
+
+__host__ void recude_multithreadCpu(std::vector<float> vals, const int size){
+    const auto t0 = system_clock::now();
+
+    const unsigned int numThreads = std::thread::hardware_concurrency();
+    const unsigned int chunkSize = (size / numThreads) + 1;
+    std::vector<std::thread> threads;
+    std::vector<float> results(numThreads);
+
+    for (int i = 0; i < numThreads; ++i) {
+        int start = i * chunkSize;
+        int end = (i == numThreads - 1) ? size : start + chunkSize;
+        threads.emplace_back([&vals, &results, i, start, end] {
+            results[i] = sumVector(vals, start, end);
+        });
+    }
+
+    for (auto& t : threads) {
+        t.join();
+    }
+    float total = std::accumulate(results.begin(), results.end(), 0.0f);
+
+    const auto t1 = system_clock::now();
+    const auto runt = 1000.f * duration_cast<duration<float>>(t1 - t0).count();
+    std::cout << std::setw(20) << "multithreadCpu" << "\t" << runt << "ms \t" << total << std::endl;
 }
 
 // Declare a GPU-visible floating point variable in global memory.
@@ -265,7 +301,8 @@ int main(int argc, char** argv)
     constexpr unsigned int BLOCK_SIZE = 256;
     constexpr unsigned int WARMUP_ITERATIONS = 10;
     constexpr unsigned int TIMING_ITERATIONS = 20;
-    constexpr unsigned int N = 16'777'217;
+    constexpr unsigned int N = 100'000'000;
+    // constexpr unsigned int N = 16'777'217;
 
     std::cout << "Fill all inputs contain 1.f ...\n" << std::endl;
     std::vector<float> vals;
@@ -273,10 +310,11 @@ int main(int argc, char** argv)
     // samplesutil::prepareRandomNumbersCPUGPU(N, vals, &dValsPtr);
     samplesutil::fillNumbersCPUGPU(N, vals, &dValsPtr, 1.f);
 
-    std::cout << "==== CPU Reduction ====\n" << std::endl;
+    std::cout << "==== CPU Reductions ====\n" << std::endl;
     // A reference value is computed by sequential reduction
     reduce_ForloopCpu(vals, N);
     reduce_accumulateCpu(vals, N);
+    recude_multithreadCpu(vals, N);
     std::cout << "==== GPU Reductions ====\n" << std::endl;
     /*
      Set up a collection of reductions to evaluate for performance.
