@@ -4,7 +4,7 @@
         {
             "type": "cppbuild",
             "label": "C/C++: nvcc build active file",
-            "command": "${env:CONDA_PREFIX}/envs/cxx/bin/nvcc",
+            "command": "/home/tz/anaconda3/envs/cxx/bin/nvcc",
             "args": [
                 "-g", "-G", // for debug host & device respectively
                 "-std=c++17",

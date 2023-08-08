@@ -4,12 +4,12 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${CONDA_PREFIX}/envs/cxx/include",
-                "${CONDA_PREFIX}/envs/cxx/include/python3.10",
+                "${env:CONDA_PREFIX}/envs/cxx/include",
+                "${env:CONDA_PREFIX}/envs/cxx/include/python3.10",
                 "${workspaceFolder}/third_party/cudnn-linux-x86_64-8.9.2.26_cuda11-archive/include"
             ],
             "defines": [],
-            "compilerPath": "${CONDA_PREFIX}/envs/cxx/bin/nvcc",
+            "compilerPath": "/home/tz/anaconda3/envs/cxx/bin/nvcc",
             "cStandard": "c17",
             "cppStandard": "c++17",
             "intelliSenseMode": "linux-gcc-x64"
