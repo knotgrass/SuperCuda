@@ -13,3 +13,8 @@
 
 ### nvidia tool usage
 - [ ] [NgoHuuGiaHuy](https://viblo.asia/s/cach-su-dung-nvidia-tools-PwlVmRAw45Z)
+
+### Technique
+- [ ] [nichijou](https://nichijou.co/cuda7-tiling/)
+- [ ] [blog/tiled-matrix-multiplication](https://penny-xu.github.io/blog/tiled-matrix-multiplication)
+- [ ] [tiling in cuda](https://www.google.com/search?q=tiling+in+cuda&oq=tiling+in+cuda&gs_lcrp=EgZjaHJvbWUyBggAEEUYOTIKCAEQABiGAxiKBTIKCAIQABiGAxiKBdIBCTIxNjUzajBqN6gCALACAA&sourceid=chrome&ie=UTF-8)
