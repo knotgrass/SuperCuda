@@ -15,7 +15,7 @@
             "environment": [
                 {
                     "name": "LD_LIBRARY_PATH",
-                    "value": "${env:CONDA_PREFIX}/envs/cxx/lib:${workspaceFolder}/third_party/cudnn-linux-x86_64-8.9.2.26_cuda11-archive/lib"
+                    "value": "${env:CONDA_PREFIX}/envs/cxx/lib:${workspaceFolder}/third_party/cudnn-linux-x86_64-8.9.2.26_cuda11-archive/lib:${workspaceFolder}/third_party/cutlass-3.2.1/install/lib"
                 }
             ],
             "externalConsole": false,

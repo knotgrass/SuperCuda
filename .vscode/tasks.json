@@ -13,7 +13,9 @@
                 "--relocatable-device-code=true",
                 "${file}", "-o", "${fileDirname}/../bin/${fileBasenameNoExtension}.out",
                 "-I${workspaceFolder}/third_party/cudnn-linux-x86_64-8.9.2.26_cuda11-archive/include",
-                "-L${workspaceFolder}/third_party/cudnn-linux-x86_64-8.9.2.26_cuda11-archive/lib"
+                "-L${workspaceFolder}/third_party/cudnn-linux-x86_64-8.9.2.26_cuda11-archive/lib",
+                "-I${workspaceFolder}/third_party/cutlass-3.2.1/install/include",
+                "-L${workspaceFolder}/third_party/cutlass-3.2.1/install/lib"
             ],
             "options": {
                 "cwd": "${fileDirname}"
