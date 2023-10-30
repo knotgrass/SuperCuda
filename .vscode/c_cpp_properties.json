@@ -6,7 +6,8 @@
                 "${workspaceFolder}/**",
                 "${env:CONDA_PREFIX}/envs/cxx/include",
                 "${env:CONDA_PREFIX}/envs/cxx/include/python3.10",
-                "${workspaceFolder}/third_party/cudnn-linux-x86_64-8.9.2.26_cuda11-archive/include"
+                "${workspaceFolder}/third_party/cudnn-linux-x86_64-8.9.2.26_cuda11-archive/include",
+                "${workspaceFolder}/third_party/cutlass-3.2.1/install/include"
             ],
             "defines": [],
             "compilerPath": "/home/tz/anaconda3/envs/cxx/bin/nvcc",
