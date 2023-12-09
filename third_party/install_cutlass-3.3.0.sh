@@ -6,17 +6,15 @@ cd "$workspaceFolder"
 
 mkdir -p third_party && cd third_party
 
-wget https://github.com/NVIDIA/cutlass/archive/refs/tags/v3.2.1.zip
-unzip v3.2.1.zip && rm v3.2.1.zip
-cd cutlass-3.2.1
-
+git clone https://github.com/NVIDIA/cutlass.git -b v3.3.0
+cd cutlass
 
 # export CUDACXX=${CUDA_INSTALL_PATH}/bin/nvcc
 export CUDACXX=/home/tz/anaconda3/envs/cxx/bin/nvcc
 
 mkdir build && cd build
 cmake .. \
-    -DCMAKE_INSTALL_PREFIX=$workspaceFolder/third_party/cutlass-3.2.1/install \
+    -DCMAKE_INSTALL_PREFIX=$workspaceFolder/third_party/cutlass/install \
     -DCUTLASS_NVCC_ARCHS=75 \
     -DCUTLASS_ENABLE_TESTS=ON \
     -DCUTLASS_UNITY_BUILD_ENABLED=ON
