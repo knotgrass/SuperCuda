@@ -6,8 +6,10 @@ cd "$workspaceFolder"
 
 mkdir -p third_party && cd third_party
 
-git clone https://github.com/NVIDIA/cutlass.git -b v3.3.0
+# git clone https://github.com/NVIDIA/cutlass.git -b v3.3.0
+git submodule add https://github.com/NVIDIA/cutlass third_party/cutlass
 cd cutlass
+git checkout v3.3.0
 
 # export CUDACXX=${CUDA_INSTALL_PATH}/bin/nvcc
 export CUDACXX=/home/tz/anaconda3/envs/cxx/bin/nvcc
