@@ -1,7 +1,8 @@
 # Parallel
 
 * setup env ```pip install git+https://github.com/Andy-Dang12/nvcc4jupyter.git```
-
+### article
+- [ ] [A Case Study in CUDA Kernel Fusion](https://arxiv.org/abs/2312.11918)
 ### cuda code sample
 - [x] [tutorial-viblo](https://viblo.asia/s/lap-trinh-song-song-0gdJzv6kJz5)
 - [x] [nvcc4jupyter](https://github.com/Andy-Dang12/nvcc4jupyter)
