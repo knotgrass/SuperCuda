@@ -14,6 +14,7 @@
 
 ### nvidia tool usage
 - [ ] [NgoHuuGiaHuy](https://viblo.asia/s/cach-su-dung-nvidia-tools-PwlVmRAw45Z)
+- [ ] [debug in Linux with VScode](https://viblo.asia/p/debug-cuda-code-tren-visual-studio-code-cung-nvidia-nsight-visual-studio-code-edition-obA46Ow9JKv)
 
 ### Technique
 - [ ] [nichijou](https://nichijou.co/cuda7-tiling/)
