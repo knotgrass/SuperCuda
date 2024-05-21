@@ -17,6 +17,6 @@
 - [ ] [debug in Linux with VScode](https://viblo.asia/p/debug-cuda-code-tren-visual-studio-code-cung-nvidia-nsight-visual-studio-code-edition-obA46Ow9JKv)
 
 ### Technique
-- [ ] [nichijou](https://nichijou.co/cuda7-tiling/)
-- [ ] [blog/tiled-matrix-multiplication](https://penny-xu.github.io/blog/tiled-matrix-multiplication)
-- [ ] [tiling in cuda](https://www.google.com/search?q=tiling+in+cuda&oq=tiling+in+cuda&gs_lcrp=EgZjaHJvbWUyBggAEEUYOTIKCAEQABiGAxiKBTIKCAIQABiGAxiKBdIBCTIxNjUzajBqN6gCALACAA&sourceid=chrome&ie=UTF-8)
+- [ ] tiled [nichijou](https://nichijou.co/cuda7-tiling/) , [blog/tiled-matrix-multiplication](https://penny-xu.github.io/blog/tiled-matrix-multiplication) , [tiling in cuda](https://www.google.com/search?q=tiling+in+cuda&oq=tiling+in+cuda&gs_lcrp=EgZjaHJvbWUyBggAEEUYOTIKCAEQABiGAxiKBTIKCAIQABiGAxiKBdIBCTIxNjUzajBqN6gCALACAA&sourceid=chrome&ie=UTF-8)
+- [ ] tuning
+- [ ] fused kernel
