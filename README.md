@@ -20,3 +20,4 @@
 - [ ] tiled [nichijou](https://nichijou.co/cuda7-tiling/) , [blog/tiled-matrix-multiplication](https://penny-xu.github.io/blog/tiled-matrix-multiplication) , [tiling in cuda](https://www.google.com/search?q=tiling+in+cuda&oq=tiling+in+cuda&gs_lcrp=EgZjaHJvbWUyBggAEEUYOTIKCAEQABiGAxiKBTIKCAIQABiGAxiKBdIBCTIxNjUzajBqN6gCALACAA&sourceid=chrome&ie=UTF-8)
 - [ ] tuning
 - [ ] fused kernel
+- [ ] [Nvidia® Tensor Memory Accelerator(TMA)](https://research.colfax-intl.com/tutorial-hopper-tma/)
