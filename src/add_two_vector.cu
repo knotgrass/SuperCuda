@@ -5,7 +5,7 @@
 #include <cuda_runtime.h>
 
 
-__global__ void vector_add(float *out, float *a, float *b, int n) {
+__global__ void vector_add(float *out, float *a, float *b, const int n) {
     // printf("threadIdx.x = %d\n", threadIdx.x); // index of thread inside the block
     // printf("blockIdx.x = %d\n", blockIdx.x);  // index of block in the grid
     // printf("blockDim.x = %d\n", blockDim.x); // number of threads in the block
@@ -25,34 +25,34 @@ int main(int argc, char** argv) {
     float *a, *b, *out;
     float *d_a, *d_b, *d_out;
 
-    //step 1.1: Allocate host memory
+    //step 1: Allocate host memory
     a = (float* )malloc(sizeof(float) * N);
     b = (float* )malloc(sizeof(float) * N);
     out = (float*)malloc(sizeof(float) * N);
 
-    //Step 1.2: initialized host data
+    //Step 2: initialized host data
     for(int i = 0; i < N; i++){
         a[i] = 1.0f;
         b[i] = 2.0f;
     }
 
 
-    //Step 2: Allocate device memory
+    //Step 3: Allocate device memory
     cudaMalloc((void**)&d_a, sizeof(float) * N);
     cudaMalloc((void**)&d_b, sizeof(float) * N);
     cudaMalloc((void**)&d_out, sizeof(float) * N);
 
 
-    //Step3: Transfer input data from host memory to device memory
+    //Step 4: Transfer input data from host memory to device memory
     cudaMemcpy(d_a, a, sizeof(float) * N, cudaMemcpyHostToDevice);
     cudaMemcpy(d_b, b, sizeof(float) * N, cudaMemcpyHostToDevice);
 
 
-    //Step4: Executing kernel
+    //Step 5: Executing kernel
     vector_add <<<1, 1>>>(d_out, d_a, d_b, N);
     cudaDeviceSynchronize();
 
-    //Step5: Transfer output from device memory to host memory
+    //Step 6: Transfer output from device memory to host memory
     cudaMemcpy(out, d_out, sizeof(float) * N, cudaMemcpyDeviceToHost);
 
     //Verification and print result
@@ -62,7 +62,7 @@ int main(int argc, char** argv) {
     }   std::cout << '\n' <<std::endl;
 
 
-    //Step6: free device and host memory
+    //Step 7: free device and host memory
     cudaFree(d_a);
     cudaFree(d_b);
     cudaFree(d_out);
