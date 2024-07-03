@@ -1,5 +1,7 @@
 # Parallel
 
+### nvidia cuda-c-programming-guide
+- [ ] [nVIDIA CUDA Toolkit Documentation](https://docs.nvidia.com/cuda/)
 * setup env ```pip install git+https://github.com/Andy-Dang12/nvcc4jupyter.git```
 ### article
 - [ ] [A Case Study in CUDA Kernel Fusion](https://arxiv.org/abs/2312.11918)
