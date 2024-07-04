@@ -5,12 +5,12 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "${env:CONDA_PREFIX}/envs/cxx/include",
-                "${env:CONDA_PREFIX}/envs/cxx/include/python3.10",
+                "${env:CONDA_PREFIX}/envs/cxx/include/python3.11",
                 "${workspaceFolder}/third_party/cudnn-linux-x86_64-8.9.2.26_cuda11-archive/include",
                 "${workspaceFolder}/third_party/cutlass/install/include"
             ],
             "defines": [],
-            "compilerPath": "/home/tz/anaconda3/envs/cxx/bin/nvcc",
+            "compilerPath": "${env:CONDA_PREFIX}/envs/cxx/bin/nvcc",
             "cStandard": "c17",
             "cppStandard": "c++17",
             "intelliSenseMode": "linux-gcc-x64"
