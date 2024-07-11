@@ -2,6 +2,7 @@
 
 ### nvidia cuda-c-programming-guide
 - [ ] [nVIDIA CUDA Toolkit Documentation](https://docs.nvidia.com/cuda/)
+- [ ] [ An Even Easier Introduction to CUDA](https://developer.nvidia.com/blog/even-easier-introduction-cuda/)
 
 ### article
 - [ ] [A Case Study in CUDA Kernel Fusion](https://arxiv.org/abs/2312.11918)
