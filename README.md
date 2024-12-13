@@ -16,6 +16,7 @@
 - [ ] [cuda-code-sample](https://github.com/CUDA-Tutorial/CodeSamples)
 - [x] [vietnamen-wordpress](https://vietnamen.wordpress.com/2009/10/03/ph%e1%ba%a7n-2-cuda-programming-model/)
 - [x] [supercomputingblog](http://supercomputingblog.com/category/cuda/)
+- [ ] [https://modal.com/gpu-glossary](https://modal.com/gpu-glossary/device-hardware/special-function-unit)
 
 ### nvidia tool usage
 - [ ] [NgoHuuGiaHuy](https://viblo.asia/s/cach-su-dung-nvidia-tools-PwlVmRAw45Z)
