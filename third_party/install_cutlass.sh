@@ -1,31 +1,42 @@
 #! /bin/bash
-# https://github.com/NVIDIA/cutlass/blob/main/media/docs/quickstart.md
+set -e  # Exit on error
 
+version="v4.2.1"
 workspaceFolder="$(dirname "$(dirname "$(realpath "$0")")")"
 cd "$workspaceFolder"
 
-mkdir -p third_party && cd third_party
+if [ ! -d "third_party/cutlass" ]; then
+    echo "Initializing CUTLASS submodule..."
+    git submodule add -f https://github.com/NVIDIA/cutlass.git third_party/cutlass
+else
+    echo "Updating CUTLASS submodule..."
+    git submodule update --init --recursive
+fi
 
-# git clone https://github.com/NVIDIA/cutlass.git -b v3.3.0
-# git submodule add https://github.com/NVIDIA/cutlass third_party/cutlass
-cd cutlass
+# Configure CUTLASS version
+cd third_party/cutlass
+git fetch --all --tags
+git checkout $version
+
+# Clean previous build
 rm -rf build
-git pull origin main
-git checkout main
-git pull
-git checkout v3.5.0
 
-# export CUDACXX=${CUDA_INSTALL_PATH}/bin/nvcc
+# Set compiler paths and flags
 export CUDACXX=/home/tz/anaconda3/envs/cxx/bin/nvcc
+export CC=/home/tz/anaconda3/envs/cxx/bin/gcc
+export CXX=/home/tz/anaconda3/envs/cxx/bin/g++
 
-mkdir build && cd build
+# Create build directory and configure CMake
+mkdir -p build && cd build
 cmake .. \
     -DCMAKE_INSTALL_PREFIX=$workspaceFolder/Libs/cutlass \
-    -DCUTLASS_NVCC_ARCHS=75 \
+    -DCUTLASS_NVCC_ARCHS=120 \
     -DCUTLASS_ENABLE_TESTS=ON \
     -DCUTLASS_UNITY_BUILD_ENABLED=ON
 
-make default_target -j16
+# Build and install
+echo "Building CUTLASS..."
+make default_target -j$(nproc)
 make install
 
 
