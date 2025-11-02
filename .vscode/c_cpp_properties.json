@@ -5,16 +5,29 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "${env:CONDA_PREFIX}/envs/cxx/include",
-                "${env:CONDA_PREFIX}/envs/cxx/include/python3.11",
-                "${workspaceFolder}/third_party/cudnn-linux-x86_64-8.9.2.26_cuda11-archive/include",
-                "${workspaceFolder}/third_party/cutlass/install/include"
+                "${env:CONDA_PREFIX}/envs/cxx/include/python3.13",
+                "${env:CONDA_PREFIX}/envs/cxx/targets/x86_64-linux/include",
+                "${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/include",
+
+                "${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/torch/include",
+                "${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/torch/include/torch/csrc/api/include",
+
+                "${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/nvidia/cu13/include",
+                "${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/nvidia/cudnn/include",
+                "${workspaceFolder}/Libs/cutlass/include"
             ],
-            "defines": [],
+            "defines": [
+                "__CUDA_ARCH__=1200",
+                "CUDNN_FRONTEND_SKIP_JSON_LIB"
+            ],
             "compilerPath": "${env:CONDA_PREFIX}/envs/cxx/bin/nvcc",
             "cStandard": "c17",
             "cppStandard": "c++17",
-            "intelliSenseMode": "linux-gcc-x64"
-            // "compileCommands": "${workspaceFolder}/build/compile_commands.json"
+            "intelliSenseMode": "linux-gcc-x64",
+            "compilerArgs": [
+                "-ccbin=${env:CONDA_PREFIX}/envs/cxx/bin/g++",
+                "--std=c++17"
+            ]
         }
     ],
     "version": 4

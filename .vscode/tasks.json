@@ -9,14 +9,32 @@
                 "-g", "-G", // for debug host & device respectively
                 "-std=c++17",
                 "-allow-unsupported-compiler", // gnu later v11
-                "-arch=compute_75", //to target a specific GPU architecture that supports ITS
+                "-arch=compute_120", //to target a specific GPU architecture that supports ITS
+                "-gencode=arch=compute_120,code=sm_120",
                 "--relocatable-device-code=true",
                 "${file}", "-o", "${fileDirname}/../bin/${fileBasenameNoExtension}.out",
-                "-lcublas",
-                "-I${workspaceFolder}/third_party/cudnn-linux-x86_64-8.9.2.26_cuda11-archive/include",
-                "-L${workspaceFolder}/third_party/cudnn-linux-x86_64-8.9.2.26_cuda11-archive/lib",
-                "-I${workspaceFolder}/third_party/cutlass/install/include",
-                "-L${workspaceFolder}/third_party/cutlass/install/lib"
+
+                // Include paths
+                "-I${workspaceFolder}/Libs/cutlass/include",
+                "-I${env:CONDA_PREFIX}/envs/cxx/include",
+                "-I${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/include",
+                "-I${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/torch/include",
+                "-I${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/torch/include/torch/csrc/api/include",
+                "-I${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/nvidia/cudnn/include",
+
+                // Library paths
+                "-L${env:CONDA_PREFIX}/envs/cxx/lib",
+                "-L${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/torch/lib",
+                "-L${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/nvidia/cudnn/lib",
+                "-L${workspaceFolder}/Libs/cutlass/lib",
+
+                // Libraries to link
+                "-ltorch", "-lc10", "-lc10_cuda",
+                "-lcudnn",
+                "-Wl,-rpath,${env:CONDA_PREFIX}/envs/cxx/lib",
+                "-Wl,-rpath,${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/torch/lib",
+                "-Wl,-rpath,${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/nvidia/cudnn/lib",
+
             ],
             "options": {
                 "cwd": "${fileDirname}"

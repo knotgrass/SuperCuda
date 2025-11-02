@@ -1,7 +1,4 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
         {
@@ -15,7 +12,11 @@
             "environment": [
                 {
                     "name": "LD_LIBRARY_PATH",
-                    "value": "${env:CONDA_PREFIX}/envs/cxx/lib:${workspaceFolder}/third_party/cudnn-linux-x86_64-8.9.2.26_cuda11-archive/lib:${workspaceFolder}/third_party/cutlass/install/lib"
+                    "value": "${env:CONDA_PREFIX}/envs/cxx/lib:${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/torch/lib:${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/nvidia/cudnn/lib:${workspaceFolder}/Libs/cutlass/lib"
+                },
+                {
+                    "name": "CUDA_VISIBLE_DEVICES",
+                    "value": "0"
                 }
             ],
             "externalConsole": false,
@@ -25,6 +26,11 @@
                 {
                     "description": "Enable pretty-printing for gdb",
                     "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set CUDA focus to device kernel",
+                    "text": "set cuda break_on_launch application",
                     "ignoreFailures": true
                 }
             ],

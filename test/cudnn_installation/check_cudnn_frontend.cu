@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cudnn.h>
+#include <cudnn_frontend.h>
 
 // Try to include cuDNN frontend header
 #ifdef __has_include
