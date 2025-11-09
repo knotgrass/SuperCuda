@@ -16,3 +16,6 @@ pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130
 
 #note
 #compile with g++ https://discuss.pytorch.org/t/solved-build-the-c-frontend-using-g-or-any-other-compiler-no-cmake/35156/2
+
+# ninja for cpp_extension
+pip install ninja
