@@ -1,0 +1,34 @@
+BasedOnStyle: LLVM
+
+# Indentation
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+# Line breaking
+ColumnLimit: 120
+BreakBeforeBraces: Attach
+
+# CUDA-specific friendliness
+AllowShortFunctionsOnASingleLine: Empty
+AlignAfterOpenBracket: Align
+SpacesInAngles: false
+
+# Keep kernel launch parameters tidy: <<< >>>
+SpaceBeforeCpp11BracedList: false
+Cpp11BracedListStyle: true
+
+# Don't break kernel qualifiers (__global__, __device__, __host__)
+QualifierAlignment: Left
+
+# Pointer & reference alignment
+PointerAlignment: Right
+
+# Improve readability in lambdas and templates
+AlignOperands: true
+BinPackArguments: false
+BinPackParameters: false
+
+# Keep include blocks clean
+SortIncludes: true
+IncludeBlocks: Regroup
