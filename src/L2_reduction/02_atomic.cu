@@ -12,27 +12,27 @@ __global__ void vector_sum(const float *d_vec, const size_t n, double *d_result)
 }
 /**
  * @brief
- * Compute block results in fast, shared memory, update global at end
+ * Per-block accumulation using shared-memory atomics with a single global update per block.
  */
 __global__ void vector_sum2(const float *d_vec, const size_t n, double *d_result) {
     const size_t global_tid = blockIdx.x * blockDim.x + threadIdx.x;
 
-    // allocate shared memory
+    // Allocate a block-wide accumulator in shared memory.
     __shared__ double s_result;
 
-    // init shared memory data in thread 0
+    // Zero the shared accumulator once per block.
     if (threadIdx.x == 0) {
         s_result = 0;
     }
-    __syncthreads(); // make sure all threads have init shared memory data
+    __syncthreads(); // Ensure all threads see the initialized accumulator.
 
-    // compute block result, add result to fast shared memory
+    // Accumulate contributions via shared-memory atomicAdd.
     if (global_tid < n) {
         atomicAdd(&s_result, d_vec[global_tid]);
     }
-    __syncthreads(); // make sure all threads have updated shared memory data
+    __syncthreads(); // Ensure the block-wide sum is complete before flushing.
 
-    // transfer shared memory data to global memory
+    // The block leader commits the partial sum to global memory.
     if (threadIdx.x == 0) {
         atomicAdd(d_result, s_result);
     }
