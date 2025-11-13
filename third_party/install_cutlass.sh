@@ -1,4 +1,6 @@
 #! /bin/bash
+
+# conda install cutlass -c conda-forge -y
 set -e  # Exit on error
 
 version="v4.2.1"
