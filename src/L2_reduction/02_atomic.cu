@@ -38,6 +38,29 @@ __global__ void vector_sum2(const float *d_vec, const size_t n, double *d_result
     }
 }
 
+/**
+ * @brief
+ * tree-based reduction
+ */
+__global__ void vector_sum3(const float *d_vec, const size_t n, double *d_result) {
+    const size_t gtid = blockIdx.x * blockDim.x + threadIdx.x;
+    // Allocate a block-wide accumulator in shared memory.
+    extern __shared__ double sdata[];
+    sdata[threadIdx.x] = (gtid < n ? d_vec[gtid] : 0.0);
+
+    for (size_t s = blockDim.x / 2; s > 0; s /= 2) {
+        __syncthreads();
+        if (threadIdx.x < s) { // haft of all threads in block perform
+            sdata[threadIdx.x] += sdata[threadIdx.x + s]; // use add instead of atomicAdd
+        }
+    }
+
+    __syncthreads(); // Ensure the block-wide sum is complete before flushing.
+    if (threadIdx.x == 0) {
+        atomicAdd(d_result, sdata[0]);
+    }
+}
+
 int main(int argc, char **argv) {
     const size_t size = 100'000'000;
 
@@ -60,7 +83,9 @@ int main(int argc, char **argv) {
     const unsigned int n_threads = 256;
     const unsigned int n_blocks = (size + n_threads - 1) / n_threads;
     const system_clock::time_point before = system_clock::now();
-    vector_sum<<<n_blocks, n_threads>>>(d_vec, size, d_result);
+    // vector_sum<<<n_blocks, n_threads>>>(d_vec, size, d_result);
+    // vector_sum2<<<n_blocks, n_threads>>>(d_vec, size, d_result);
+    vector_sum3<<<n_blocks, n_threads, sizeof(double) * n_threads>>>(d_vec, size, d_result);
     cudaDeviceSynchronize();
     const system_clock::time_point after = system_clock::now();
     const duration<double> elapsed = after - before;
