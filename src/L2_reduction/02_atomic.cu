@@ -40,7 +40,7 @@ __global__ void vector_sum2(const float *d_vec, const size_t n, double *d_result
 
 /**
  * @brief
- * tree-based reduction
+ * tree-based reduction with shared memory in one block.
  */
 __global__ void vector_sum3(const float *d_vec, const size_t n, double *d_result) {
     const size_t gtid = blockIdx.x * blockDim.x + threadIdx.x;
