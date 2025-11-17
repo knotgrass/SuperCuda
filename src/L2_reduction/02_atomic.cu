@@ -61,6 +61,42 @@ __global__ void vector_sum3(const float *d_vec, const size_t n, double *d_result
     }
 }
 
+/**
+ * @brief
+ * use register memory
+ */
+__global__ void vector_sum4(const float *d_vec, const size_t n, double *d_result) {
+    const size_t gtid = blockIdx.x * blockDim.x + threadIdx.x;
+    //           ↑         ↑            ↑             ↑
+    //       Register   Register     Register      Register
+    //                    (built-in variables)
+    extern __shared__ double sdata[];
+    sdata[threadIdx.x] = (gtid < n ? d_vec[gtid] : 0.0);
+
+    for (size_t s = blockDim.x / 2; s > 16; s /= 2) {
+        __syncthreads();
+        if (threadIdx.x < s) { // haft of all threads in block perform
+            sdata[threadIdx.x] += sdata[threadIdx.x + s]; // use add instead of atomicAdd
+        }
+    }
+
+    float x = sdata[threadIdx.x]; // ✅ Copy vào register 'x'
+    //    ↑          ↑
+    //  register    shared memory
+
+    if (threadIdx.x < 32) {
+        x += __shfl_sync(0xffffffff, x, threadIdx.x + 16); // ✅ Copy từ register của thread khác vào register 'x'
+        x += __shfl_sync(0xffffffff, x, threadIdx.x + 8);
+        x += __shfl_sync(0xffffffff, x, threadIdx.x + 4);
+        x += __shfl_sync(0xffffffff, x, threadIdx.x + 2);
+        x += __shfl_sync(0xffffffff, x, threadIdx.x + 1);
+    }
+
+    if (threadIdx.x == 0){
+        atomicAdd(d_result, x);
+    }
+}
+
 int main(int argc, char **argv) {
     const size_t size = 100'000'000;
 
@@ -85,7 +121,8 @@ int main(int argc, char **argv) {
     const system_clock::time_point before = system_clock::now();
     // vector_sum<<<n_blocks, n_threads>>>(d_vec, size, d_result);
     // vector_sum2<<<n_blocks, n_threads>>>(d_vec, size, d_result);
-    vector_sum3<<<n_blocks, n_threads, sizeof(double) * n_threads>>>(d_vec, size, d_result);
+    // vector_sum3<<<n_blocks, n_threads, sizeof(double) * n_threads>>>(d_vec, size, d_result);
+    vector_sum4<<<n_blocks, n_threads, sizeof(double) * n_threads>>>(d_vec, size, d_result);
     cudaDeviceSynchronize();
     const system_clock::time_point after = system_clock::now();
     const duration<double> elapsed = after - before;
