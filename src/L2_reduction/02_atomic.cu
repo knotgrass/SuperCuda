@@ -97,6 +97,42 @@ __global__ void vector_sum4(const float *d_vec, const size_t n, double *d_result
     }
 }
 
+/**
+ * @brief
+ * Optimized tree-based reduction using shared memory and warp-level `__shfl_sync` for faster summation.
+ * Each thread initially loads one or two elements from global memory into shared memory,
+ * then performs a tree reduction within the block, followed by a warp-level reduction using `__shfl_sync`.
+ * Finally, the block leader commits the partial sum to global memory using `atomicAdd`.
+ * https://claude.ai/share/488f9600-5946-4596-aa59-08603a282d98
+ */
+__global__ void vector_sum5(const float *d_vec, const size_t n, double *d_result) {
+    const size_t gtid = blockIdx.x * blockDim.x + threadIdx.x;
+    extern __shared__ float sdata5[];
+    sdata5[threadIdx.x] = (gtid < n/2 ? d_vec[gtid] : 0.0);
+    sdata5[threadIdx.x] +=
+        ((gtid + (n / 2)) < n ? d_vec[gtid + (n / 2)] : 0.0); // make sure all threads perform the add operation,
+                                                              // not just load data from global memory to shared memory
+
+    for (size_t stride = blockDim.x/2; stride>16; stride /= 2) {
+        __syncthreads();
+
+        if (threadIdx.x < stride) {
+            sdata5[threadIdx.x] += sdata5[threadIdx.x + stride];
+        }
+    }
+    float x = sdata5[threadIdx.x];
+    if (threadIdx.x < 32) {
+        x += __shfl_down_sync(0xffffffff, x, 16);
+        x += __shfl_down_sync(0xffffffff, x, 8);
+        x += __shfl_down_sync(0xffffffff, x, 4);
+        x += __shfl_down_sync(0xffffffff, x, 2);
+        x += __shfl_down_sync(0xffffffff, x, 1);
+    }
+    if (threadIdx.x == 0) {
+        atomicAdd(d_result, x);
+    }
+}
+
 int main(int argc, char **argv) {
     const size_t size = 100'000'000;
 
@@ -117,12 +153,15 @@ int main(int argc, char **argv) {
 
     // launch & benchmark the kernel
     const unsigned int n_threads = 256;
-    const unsigned int n_blocks = (size + n_threads - 1) / n_threads;
+    // const unsigned int n_blocks = (size + n_threads - 1) / n_threads;
+    const unsigned int n_blocks= ((size / 2 + 1) + (n_threads - 1)) / n_threads;
+
     const system_clock::time_point before = system_clock::now();
     // vector_sum<<<n_blocks, n_threads>>>(d_vec, size, d_result);
     // vector_sum2<<<n_blocks, n_threads>>>(d_vec, size, d_result);
     // vector_sum3<<<n_blocks, n_threads, sizeof(double) * n_threads>>>(d_vec, size, d_result);
-    vector_sum4<<<n_blocks, n_threads, sizeof(double) * n_threads>>>(d_vec, size, d_result);
+    // vector_sum4<<<n_blocks, n_threads, sizeof(double) * n_threads>>>(d_vec, size, d_result);
+    vector_sum5<<<n_blocks, n_threads, sizeof(float) * n_threads>>>(d_vec, size, d_result);
     cudaDeviceSynchronize();
     const system_clock::time_point after = system_clock::now();
     const duration<double> elapsed = after - before;
