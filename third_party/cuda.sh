@@ -21,6 +21,7 @@ conda install nvidia::cudnn cuda-version=13 -y
 conda install -c nvidia/label/cuda-13.0.2 nccl -y
 
 # nsight compute ui
+https://chatgpt.com/share/69243300-842c-8012-942c-377b45b2572e
 sudo apt update
 sudo apt install libxcb-cursor0 libxkbcommon-x11-0 libxcb-xinerama0
 QT_PLUGIN_PATH="" QT_QPA_PLATFORM_PLUGIN_PATH="" QT_QPA_PLATFORM="xcb" ncu-ui
