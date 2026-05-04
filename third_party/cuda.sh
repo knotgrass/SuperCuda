@@ -12,6 +12,7 @@ pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130
 pip install nvcc4jupyter -U --no-cache-dir --force-reinstall
 # ninja for cpp_extension
 pip install ninja
+pip install cuda-tile cupy-cuda13x # https://docs.nvidia.com/cuda/cutile-python/quickstart.html#prerequisites
 # pip install -U "cuda-python[all]" # https://nvidia.github.io/cuda-python/cuda-bindings/latest/install.html
 # conda install -c conda-forge cuda-python
 
