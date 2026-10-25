@@ -38,8 +38,4 @@ conda install --override-channels -c pkgs/main nccl -y
 conda env config vars set CUDA_HOME=$CONDA_PREFIX TORCH_CUDA_ARCH_LIST="12.0"
 echo "Run 'conda deactivate && conda activate $CONDAENV' to apply CUDA_HOME and TORCH_CUDA_ARCH_LIST."
 
-# nsight compute ui
-# https://chatgpt.com/share/69243300-842c-8012-942c-377b45b2572e
-sudo apt update -y
-sudo apt install libxcb-cursor0 libxkbcommon-x11-0 libxcb-xinerama0 -y
-QT_PLUGIN_PATH="" QT_QPA_PLATFORM_PLUGIN_PATH="" QT_QPA_PLATFORM="xcb" ncu-ui
+# Nsight Compute UI libraries and the GPU counter permission: script/setup/ncu.sh.
