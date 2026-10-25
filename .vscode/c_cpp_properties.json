@@ -22,7 +22,7 @@
             ],
             "compilerPath": "${env:CONDA_PREFIX}/envs/cxx/bin/nvcc",
             "cStandard": "c17",
-            "cppStandard": "c++17",
+            "cppStandard": "c++20",
             "intelliSenseMode": "linux-gcc-x64",
             "compilerArgs": [
                 "-ccbin=${env:CONDA_PREFIX}/envs/cxx/bin/g++",

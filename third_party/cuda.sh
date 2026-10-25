@@ -9,6 +9,7 @@ conda install cuda -c nvidia/label/cuda-13.0.2 --name "$CONDAENV" -y
 
 # pytorch 2.9.0
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130
+python -c "import torch; print(torch.__version__, torch.version.cuda)"
 pip install nvcc4jupyter -U --no-cache-dir --force-reinstall
 # ninja for cpp_extension
 pip install ninja

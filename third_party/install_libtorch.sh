@@ -6,7 +6,7 @@ CONDAENV="cxx"    # edit conda env name
 # pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
 #cuda
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu132
 # https://pytorch.org/get-started/locally/
 
 #! header and shared lib
