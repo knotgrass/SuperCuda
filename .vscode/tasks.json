@@ -1,43 +1,14 @@
 {
+    // Start VS Code from a shell with `conda activate cxx`: ${env:CONDA_PREFIX} must be the cxx env.
     "version": "2.0.0",
     "tasks": [
         {
-            "type": "cppbuild",
+            // Standalone programs only (files with main()). Output: csrc/bin/<name>.out
+            "type": "shell",
             "label": "C/C++: nvcc build active file",
-            "command": "/home/tz/anaconda3/envs/cxx/bin/nvcc",
-            "args": [
-                "-g", "-G", // for debug host & device respectively
-                "-std=c++17",
-                "-allow-unsupported-compiler", // gnu later v11
-                "-arch=compute_120", //to target a specific GPU architecture that supports ITS
-                "-gencode=arch=compute_120,code=sm_120",
-                "--relocatable-device-code=true",
-                "${file}", "-o", "${fileDirname}/../bin/${fileBasenameNoExtension}.out",
-
-                // Include paths
-                "-I${workspaceFolder}/Libs/cutlass/include",
-                "-I${env:CONDA_PREFIX}/envs/cxx/include",
-                "-I${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/include",
-                "-I${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/torch/include",
-                "-I${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/torch/include/torch/csrc/api/include",
-                "-I${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/nvidia/cudnn/include",
-
-                // Library paths
-                "-L${env:CONDA_PREFIX}/envs/cxx/lib",
-                "-L${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/torch/lib",
-                "-L${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/nvidia/cudnn/lib",
-                "-L${workspaceFolder}/Libs/cutlass/lib",
-
-                // Libraries to link
-                "-ltorch", "-lc10", "-lc10_cuda",
-                "-lcudnn",
-                "-Wl,-rpath,${env:CONDA_PREFIX}/envs/cxx/lib",
-                "-Wl,-rpath,${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/torch/lib",
-                "-Wl,-rpath,${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/nvidia/cudnn/lib",
-
-            ],
+            "command": "mkdir -p '${workspaceFolder}/csrc/bin' && '${env:CONDA_PREFIX}/bin/nvcc' -g -G -std=c++20 -arch=sm_120 -I'${workspaceFolder}/common' -I'${workspaceFolder}/third_party/cutlass/include' '${file}' -o '${workspaceFolder}/csrc/bin/${fileBasenameNoExtension}.out'",
             "options": {
-                "cwd": "${fileDirname}"
+                "cwd": "${workspaceFolder}"
             },
             "problemMatcher": [
                 "$nvcc"
@@ -46,7 +17,57 @@
                 "kind": "build",
                 "isDefault": true
             },
-            "detail": "compiler: ${env:CONDA_PREFIX}/envs/cxx/bin/nvcc"
+            "detail": "nvcc -g -G (debug host & device), sm_120"
+        },
+        {
+            "type": "shell",
+            "label": "ext: build release",
+            "command": "${workspaceFolder}/script/build.sh release",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                "$nvcc",
+                "$gcc"
+            ],
+            "group": "build",
+            "detail": "JIT-build the Torch extension into build/release (-O3 -lineinfo)"
+        },
+        {
+            "type": "shell",
+            "label": "ext: build debug",
+            "command": "${workspaceFolder}/script/build.sh debug",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                "$nvcc",
+                "$gcc"
+            ],
+            "group": "build",
+            "detail": "JIT-build the Torch extension into build/debug (-O0 -g -G)"
+        },
+        {
+            "type": "shell",
+            "label": "ext: compdb",
+            "command": "${workspaceFolder}/script/compdb.sh",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "dependsOn": "ext: build release",
+            "problemMatcher": [],
+            "detail": "Write compile_commands.json for IntelliSense"
+        },
+        {
+            "type": "shell",
+            "label": "pytest",
+            "command": "python -m pytest tests -q",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "group": "test",
+            "detail": "Run all tests (release build)"
         }
     ]
 }

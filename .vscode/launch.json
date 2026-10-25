@@ -1,18 +1,20 @@
 {
+    // Start VS Code from a shell with `conda activate cxx`: ${env:CONDA_PREFIX} must be the cxx env.
     "version": "0.2.0",
     "configurations": [
         {
+            // Standalone program (open a csrc/*.cu file with main()).
             "name": "C/C++: nvcc build and debug active file",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${fileDirname}/../bin/${fileBasenameNoExtension}.out",
+            "program": "${workspaceFolder}/csrc/bin/${fileBasenameNoExtension}.out",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [
                 {
                     "name": "LD_LIBRARY_PATH",
-                    "value": "${env:CONDA_PREFIX}/envs/cxx/lib:${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/torch/lib:${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/nvidia/cudnn/lib:${workspaceFolder}/Libs/cutlass/lib"
+                    "value": "${env:CONDA_PREFIX}/lib"
                 },
                 {
                     "name": "CUDA_VISIBLE_DEVICES",
@@ -21,7 +23,7 @@
             ],
             "externalConsole": false,
             "MIMode": "gdb",
-            "miDebuggerPath": "${env:CONDA_PREFIX}/envs/cxx/bin/cuda-gdb",
+            "miDebuggerPath": "${env:CONDA_PREFIX}/bin/cuda-gdb",
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
@@ -35,6 +37,39 @@
                 }
             ],
             "preLaunchTask": "C/C++: nvcc build active file"
+        },
+        {
+            // Kernel debugging through pytest: set a breakpoint in a *_cuda/*.cu file, open a tests/test_*.py file.
+            // Uses the debug build (-G) in build/debug.
+            "name": "cuda-gdb: pytest current file",
+            "type": "cuda-gdb",
+            "request": "launch",
+            "program": "${env:CONDA_PREFIX}/bin/python",
+            "args": "-m pytest ${file} -x -s",
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                {
+                    "name": "SUPERCUDA_BUILD",
+                    "value": "debug"
+                }
+            ],
+            "debuggerPath": "${env:CONDA_PREFIX}/bin/cuda-gdb",
+            "preLaunchTask": "ext: build debug"
+        },
+        {
+            // Python-side debugging of a test file (release build).
+            "name": "Python: pytest current file",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "${file}",
+                "-x",
+                "-s"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false
         }
     ]
 }

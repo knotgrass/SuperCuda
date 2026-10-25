@@ -1,32 +1,35 @@
 {
+    // Start VS Code from a shell with `conda activate cxx`: ${env:CONDA_PREFIX} must be the cxx env.
     "configurations": [
         {
             "name": "Linux",
+            // Exact flags for the extension sources: run script/compdb.sh (or task "ext: compdb").
+            "compileCommands": "${workspaceFolder}/compile_commands.json",
+            // Fallback for files not in compile_commands.json (csrc/*).
             "includePath": [
-                "${workspaceFolder}/**",
-                "${env:CONDA_PREFIX}/envs/cxx/include",
-                "${env:CONDA_PREFIX}/envs/cxx/include/python3.13",
-                "${env:CONDA_PREFIX}/envs/cxx/targets/x86_64-linux/include",
-                "${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/include",
-
-                "${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/torch/include",
-                "${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/torch/include/torch/csrc/api/include",
-
-                "${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/nvidia/cu13/include",
-                "${env:CONDA_PREFIX}/envs/cxx/lib/python3.13/site-packages/nvidia/cudnn/include",
-                "${workspaceFolder}/Libs/cutlass/include"
+                "${workspaceFolder}/common",
+                "${workspaceFolder}/torch-ext",
+                "${workspaceFolder}/third_party/cutlass/include",
+                "${env:CONDA_PREFIX}/include",
+                "${env:CONDA_PREFIX}/include/python3.13",
+                "${env:CONDA_PREFIX}/targets/x86_64-linux/include",
+                "${env:CONDA_PREFIX}/lib/python3.13/site-packages/include",
+                "${env:CONDA_PREFIX}/lib/python3.13/site-packages/torch/include",
+                "${env:CONDA_PREFIX}/lib/python3.13/site-packages/torch/include/torch/csrc/api/include",
+                "${env:CONDA_PREFIX}/lib/python3.13/site-packages/nvidia/cu13/include",
+                "${env:CONDA_PREFIX}/lib/python3.13/site-packages/nvidia/cudnn/include"
             ],
             "defines": [
                 "__CUDA_ARCH__=1200",
                 "CUDNN_FRONTEND_SKIP_JSON_LIB"
             ],
-            "compilerPath": "${env:CONDA_PREFIX}/envs/cxx/bin/nvcc",
+            "compilerPath": "${env:CONDA_PREFIX}/bin/nvcc",
             "cStandard": "c17",
             "cppStandard": "c++20",
             "intelliSenseMode": "linux-gcc-x64",
             "compilerArgs": [
-                "-ccbin=${env:CONDA_PREFIX}/envs/cxx/bin/g++",
-                "--std=c++17"
+                "-ccbin=${env:CONDA_PREFIX}/bin/g++",
+                "-std=c++20"
             ]
         }
     ],

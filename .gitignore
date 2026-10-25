@@ -1,0 +1,19 @@
+# Torch extension build (script/build.sh) and IntelliSense database (script/compdb.sh)
+build/
+compile_commands.json
+
+# Standalone programs (script/compile_n_run.sh, VS Code task)
+csrc/bin/
+*.out
+
+# Profiler reports (script/ncu.sh, script/nsys.sh)
+reports/
+*.ncu-rep
+*.nsys-rep
+
+# Python
+__pycache__/
+.pytest_cache/
+
+# Local CUTLASS install from script/setup/install_cutlass.sh (about 1.4 GB)
+libs/
