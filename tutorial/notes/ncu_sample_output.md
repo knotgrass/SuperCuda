@@ -1,11 +1,22 @@
+# Nsight Compute: sample output
+
+Moved from `script/nsight_compute.sh`. Use `script/ncu.sh` to profile now.
+
+## Setup used at that time
+
+```bash
 # install nvidia-modprobe
 sudo apt install nvidia-modprobe
 # reboot
 # run sudo nvidia-modprobe -u -c=0 once per boot
 sudo nvidia-modprobe -u -c=0
+```
 
-ncu ./main.out
-: <<'OUTPUT_OF_NSIGHT_COMPUTE'
+## Output of `ncu ./main.out`
+
+Kernel: `vector_sum3` from `csrc/L2_reduction/02_atomic.cu`, N = 100,000,000, RTX 5060 Ti (CC 12.0).
+
+```text
 ==PROF== Connected to process 11966 (/home/tz/Documents/programming/SuperCuda/main.out)
 ==PROF== Profiling "vector_sum3" - 0: 0%....50%....100% - 9 passes
 time elapsed = 1.33607 seconds
@@ -91,4 +102,4 @@ sum of vector = 1e+08
     Average SMSP Active Cycles       cycle 14,143,029.11
     Total SMSP Elapsed Cycles        cycle 2,037,316,464
     -------------------------- ----------- -------------
-OUTPUT_OF_NSIGHT_COMPUTE
+```
