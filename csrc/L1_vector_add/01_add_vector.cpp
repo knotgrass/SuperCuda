@@ -1,3 +1,5 @@
+#include <cstdlib>
+
 #define SIZE 100'000'000
 
 void vector_add(float *out, float *a, float *b, int n) {
