@@ -4,7 +4,8 @@
 set -e  # Exit on error
 
 version="v4.2.1"
-workspaceFolder="$(dirname "$(dirname "$(realpath "$0")")")"
+# repo root: this script lives in <root>/script/setup/
+workspaceFolder="$(dirname "$(dirname "$(dirname "$(realpath "$0")")")")"
 cd "$workspaceFolder"
 
 if [ ! -d "third_party/cutlass" ]; then
@@ -23,15 +24,16 @@ git checkout $version
 # Clean previous build
 rm -rf build
 
-# Set compiler paths and flags
-export CUDACXX=/home/tz/anaconda3/envs/cxx/bin/nvcc
-export CC=/home/tz/anaconda3/envs/cxx/bin/gcc
-export CXX=/home/tz/anaconda3/envs/cxx/bin/g++
+# Set compiler paths and flags (from the active conda env: `conda activate cxx`)
+: "${CONDA_PREFIX:?Run 'conda activate cxx' first}"
+export CUDACXX=$CONDA_PREFIX/bin/nvcc
+export CC=$CONDA_PREFIX/bin/gcc
+export CXX=$CONDA_PREFIX/bin/g++
 
 # Create build directory and configure CMake
 mkdir -p build && cd build
 cmake .. \
-    -DCMAKE_INSTALL_PREFIX=$workspaceFolder/Libs/cutlass \
+    -DCMAKE_INSTALL_PREFIX=$workspaceFolder/libs/cutlass \
     -DCUTLASS_NVCC_ARCHS=120 \
     -DCUTLASS_ENABLE_TESTS=ON \
     -DCUTLASS_UNITY_BUILD_ENABLED=ON
