@@ -82,7 +82,15 @@
         "*.cu": "cuda-cpp",
         "*.cuh": "cuda-cpp"
     },
-    "python.defaultInterpreterPath": "${env:CONDA_PREFIX}/bin/python",
+    // CONDA_ENV_PREFIX is the cxx conda env, set once here. tasks.json and launch.json read it as
+    // ${config:terminal.integrated.env.linux.CONDA_ENV_PREFIX}; VS Code resolves the ${userHome} inside.
+    // Do not use ${env:CONDA_PREFIX} or ${env:CUDA_HOME}: inside VS Code they are the base env and
+    // /usr/local/cuda (from ~/.zshrc). If conda is not in ~/anaconda3, change these two lines.
+    "terminal.integrated.env.linux": {
+        "CONDA_ENV_PREFIX": "${userHome}/anaconda3/envs/cxx"
+    },
+    // The Python extension expands ~ but not ${userHome}.
+    "python.defaultInterpreterPath": "~/anaconda3/envs/cxx/bin/python",
     "python.testing.pytestEnabled": true,
     "python.testing.unittestEnabled": false,
     "python.testing.pytestArgs": [

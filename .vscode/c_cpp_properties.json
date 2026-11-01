@@ -1,5 +1,9 @@
 {
-    // Start VS Code from a shell with `conda activate cxx`: ${env:CONDA_PREFIX} must be the cxx env.
+    // ${condaEnvPrefix} is the cxx conda env. Do not use ${env:CONDA_PREFIX}: VS Code keeps the env of its
+    // first window, and from the desktop that is base. On another machine, change this path only.
+    "env": {
+        "condaEnvPrefix": "${userHome}/anaconda3/envs/cxx"
+    },
     "configurations": [
         {
             "name": "Linux",
@@ -7,28 +11,28 @@
             "compileCommands": "${workspaceFolder}/compile_commands.json",
             // Fallback for files not in compile_commands.json (csrc/*).
             "includePath": [
-                "${workspaceFolder}/common",
+                "${workspaceFolder}/include",
                 "${workspaceFolder}/torch-ext",
-                "${workspaceFolder}/third_party/cutlass/include",
-                "${env:CONDA_PREFIX}/include",
-                "${env:CONDA_PREFIX}/include/python3.13",
-                "${env:CONDA_PREFIX}/targets/x86_64-linux/include",
-                "${env:CONDA_PREFIX}/lib/python3.13/site-packages/include",
-                "${env:CONDA_PREFIX}/lib/python3.13/site-packages/torch/include",
-                "${env:CONDA_PREFIX}/lib/python3.13/site-packages/torch/include/torch/csrc/api/include",
-                "${env:CONDA_PREFIX}/lib/python3.13/site-packages/nvidia/cu13/include",
-                "${env:CONDA_PREFIX}/lib/python3.13/site-packages/nvidia/cudnn/include"
+                "${workspaceFolder}/libs/cutlass/include",
+                "${condaEnvPrefix}/include",
+                "${condaEnvPrefix}/include/python3.13",
+                "${condaEnvPrefix}/targets/x86_64-linux/include",
+                "${condaEnvPrefix}/lib/python3.13/site-packages/include",
+                "${condaEnvPrefix}/lib/python3.13/site-packages/torch/include",
+                "${condaEnvPrefix}/lib/python3.13/site-packages/torch/include/torch/csrc/api/include",
+                "${condaEnvPrefix}/lib/python3.13/site-packages/nvidia/cu13/include",
+                "${condaEnvPrefix}/lib/python3.13/site-packages/nvidia/cudnn/include"
             ],
             "defines": [
                 "__CUDA_ARCH__=1200",
                 "CUDNN_FRONTEND_SKIP_JSON_LIB"
             ],
-            "compilerPath": "${env:CONDA_PREFIX}/bin/nvcc",
+            "compilerPath": "${condaEnvPrefix}/bin/nvcc",
             "cStandard": "c17",
             "cppStandard": "c++20",
             "intelliSenseMode": "linux-gcc-x64",
             "compilerArgs": [
-                "-ccbin=${env:CONDA_PREFIX}/bin/g++",
+                "-ccbin=${condaEnvPrefix}/bin/g++",
                 "-std=c++20"
             ]
         }

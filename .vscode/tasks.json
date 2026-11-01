@@ -1,15 +1,29 @@
 {
-    // Start VS Code from a shell with `conda activate cxx`: ${env:CONDA_PREFIX} must be the cxx env.
+    // The cxx conda env is CONDA_ENV_PREFIX in settings.json (terminal.integrated.env.linux), read here with
+    // ${config:...}. Do not use ${env:CONDA_PREFIX}: inside VS Code it is the base env.
+    // All tasks are "process" tasks: the Nsight extension registers its own task type named "shell", so a
+    // "type": "shell" task matches two schemas and VS Code warns on it.
     "version": "2.0.0",
+    "options": {
+        "cwd": "${workspaceFolder}",
+        // Same environment as `conda activate cxx` (README: conda env config vars). 8.6 on the A10.
+        "env": {
+            "CONDA_PREFIX": "${config:terminal.integrated.env.linux.CONDA_ENV_PREFIX}",
+            "CUDA_HOME": "${config:terminal.integrated.env.linux.CONDA_ENV_PREFIX}",
+            "TORCH_CUDA_ARCH_LIST": "12.0",
+            "PATH": "${config:terminal.integrated.env.linux.CONDA_ENV_PREFIX}/bin:${env:PATH}"
+        }
+    },
     "tasks": [
         {
             // Standalone programs only (files with main()). Output: csrc/bin/<name>.out
-            "type": "shell",
+            "type": "process",
             "label": "C/C++: nvcc build active file",
-            "command": "mkdir -p '${workspaceFolder}/csrc/bin' && '${env:CONDA_PREFIX}/bin/nvcc' -g -G -std=c++20 -arch=sm_120 -I'${workspaceFolder}/common' -I'${workspaceFolder}/third_party/cutlass/include' '${file}' -o '${workspaceFolder}/csrc/bin/${fileBasenameNoExtension}.out'",
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
+            "command": "bash",
+            "args": [
+                "-c",
+                "mkdir -p '${workspaceFolder}/csrc/bin' && exec '${config:terminal.integrated.env.linux.CONDA_ENV_PREFIX}/bin/nvcc' -g -G -std=c++20 -arch=sm_120 -I'${workspaceFolder}/common' -I'${workspaceFolder}/libs/cutlass/include' '${file}' -o '${workspaceFolder}/csrc/bin/${fileBasenameNoExtension}.out'"
+            ],
             "problemMatcher": [
                 "$nvcc"
             ],
@@ -20,12 +34,12 @@
             "detail": "nvcc -g -G (debug host & device), sm_120"
         },
         {
-            "type": "shell",
+            "type": "process",
             "label": "ext: build release",
-            "command": "${workspaceFolder}/script/build.sh release",
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
+            "command": "${workspaceFolder}/script/build.sh",
+            "args": [
+                "release"
+            ],
             "problemMatcher": [
                 "$nvcc",
                 "$gcc"
@@ -34,12 +48,12 @@
             "detail": "JIT-build the Torch extension into build/release (-O3 -lineinfo)"
         },
         {
-            "type": "shell",
+            "type": "process",
             "label": "ext: build debug",
-            "command": "${workspaceFolder}/script/build.sh debug",
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
+            "command": "${workspaceFolder}/script/build.sh",
+            "args": [
+                "debug"
+            ],
             "problemMatcher": [
                 "$nvcc",
                 "$gcc"
@@ -48,23 +62,23 @@
             "detail": "JIT-build the Torch extension into build/debug (-O0 -g -G)"
         },
         {
-            "type": "shell",
+            "type": "process",
             "label": "ext: compdb",
             "command": "${workspaceFolder}/script/compdb.sh",
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
             "dependsOn": "ext: build release",
             "problemMatcher": [],
             "detail": "Write compile_commands.json for IntelliSense"
         },
         {
-            "type": "shell",
+            "type": "process",
             "label": "pytest",
-            "command": "python -m pytest tests -q",
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
+            "command": "${config:terminal.integrated.env.linux.CONDA_ENV_PREFIX}/bin/python",
+            "args": [
+                "-m",
+                "pytest",
+                "tests",
+                "-q"
+            ],
             "problemMatcher": [],
             "group": "test",
             "detail": "Run all tests (release build)"
