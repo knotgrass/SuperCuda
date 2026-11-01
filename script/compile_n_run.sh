@@ -19,7 +19,7 @@ OUT_DIR="$ROOT/csrc/bin"
 mkdir -p "$OUT_DIR"
 OUT="$OUT_DIR/$(basename "${SRC%.*}").out"
 
-nvcc -arch="${ARCH:-sm_120}" -std=c++20 -I"$ROOT/common" -I"$ROOT/third_party/cutlass/include" "$SRC" -o "$OUT"
+nvcc -arch="${ARCH:-sm_120}" -std=c++20 -I"$ROOT/common" -I"$ROOT/libs/cutlass/include" "$SRC" -o "$OUT"
 echo "compile successful: ${OUT#"$ROOT"/}"
 printf "start run program\n\n"
 "$OUT" "$@"
