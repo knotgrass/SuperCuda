@@ -1,0 +1,26 @@
+# kernel-builder config (https://huggingface.co/docs/kernels/builder/writing-kernels).
+# This is the only source list: torch-ext/supercuda/_ops.py reads it for the dev (JIT) build,
+# and kernel-builder reads it for Hub builds.
+
+[general]
+name = "supercuda"
+version = 1
+edition = 6
+backends = ["cuda"]
+
+[torch]
+src = [
+  "torch-ext/torch_binding.cpp",
+  "torch-ext/torch_binding.h",
+]
+include = ["include"]
+
+[kernel.sgemm]
+language = "cpp-cuda"
+depends = ["torch"]
+src = [
+  "sgemm_cuda/naive.cu",   # naive_sgemm kernel + launch_naive_sgemm (raw launcher)
+  "sgemm_cuda/naive.cuh",
+  "sgemm_cuda/sgemm.cu",   # sgemm_cuda: Torch op that calls the launcher
+]
+include = ["include"]
