@@ -4,8 +4,33 @@
     "version": "0.2.0",
     "configurations": [
         {
-            // Standalone program (open a csrc/*.cu file with main()). Type cuda-gdb (Nsight): the cppdbg type
-            // does not understand CUDA stop events and shows "Unknown stopping event" at every kernel launch.
+            // Program directory (open any file of csrc/<lesson>/: main.cu + kernel files). Builds and debugs
+            // csrc/bin/<dirname>.out. Type cuda-gdb (Nsight): the cppdbg type does not understand CUDA stop
+            // events and shows "Unknown stopping event" at every kernel launch.
+            "name": "C/C++: nvcc build and debug active dir",
+            "type": "cuda-gdb",
+            "request": "launch",
+            "program": "${workspaceFolder}/csrc/bin/${fileDirnameBasename}.out",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                {
+                    "name": "LD_LIBRARY_PATH",
+                    "value": "${config:terminal.integrated.env.linux.CONDA_ENV_PREFIX}/lib"
+                },
+                {
+                    "name": "CUDA_VISIBLE_DEVICES",
+                    "value": "0"
+                }
+            ],
+            "debuggerPath": "${config:terminal.integrated.env.linux.CONDA_ENV_PREFIX}/bin/cuda-gdb",
+            // Stop at the first instruction of every kernel (was `set cuda break_on_launch application`).
+            "breakOnLaunch": false,
+            "preLaunchTask": "C/C++: nvcc build active dir"
+        },
+        {
+            // One file with main() (old lessons: csrc/helloworld.cu, csrc/L1_*/...). Same cuda-gdb setup.
             "name": "C/C++: nvcc build and debug active file",
             "type": "cuda-gdb",
             "request": "launch",
