@@ -1,6 +1,8 @@
 #include <cuda_runtime.h>
 #include <cuda_device_runtime_api.h>
-#include <cmath>
+
+#include "common.cuh"
+#include "naive.cuh"
 
 /**
  * @brief Single GEneral Matrix Multiply
@@ -41,17 +43,13 @@ __global__ void naive_sgemm(
     }
 }
 
-
-#define CEIL_DIV(a, b) (((a) + (b) - 1) / (b))
-
-
 /**
  * @brief const int + device pointer + stream -> cudaError_t
  */
 cudaError_t launch_naive_sgemm(
     const int M, const int N, const int K,
     float alpha, const float *dA, const float *dB,
-    float beta, float *dC, cudaStream_t stream=nullptr) {
+    float beta, float *dC, cudaStream_t stream) {
 
     if (M == 0 || N == 0)
         return cudaSuccess;
@@ -62,52 +60,4 @@ cudaError_t launch_naive_sgemm(
     naive_sgemm<<<grid, block, 0, stream>>>(M, N, K, alpha, dA, dB, beta, dC);
 
     return cudaGetLastError();
-}
-
-void initialize_tensor_value(int M, int N, int K, float *hA, float *hB, float *hC){
-    for (int i=0; i< M*K ; i++){
-        hA[i] = 0.1f * std::pow(-1, i);
-    }
-
-    for (int i=0; i< K*N ; i++){
-        hB[i] = 0.2f * std::pow(-1, i + 1);
-    }
-
-    for (int i=0; i< M*N ; i++){
-        hC[i] = 0.0f;
-    }
-}
-
-int main(int argc, char** argv) {
-    uint M = 4096;
-    uint N = 2048;
-    uint K = 8192;
-    float alpha = 0.5;
-    float beta = -0.1;
-    float *hA, *hB, *hC;
-    float *dA, *dB, *dC;
-
-    hA = (float *)malloc(sizeof(float) * M * K);
-    hB = (float *)malloc(sizeof(float) * K * N);
-    hC = (float *)malloc(sizeof(float) * M * N);
-
-    cudaMalloc(&dA, sizeof(float) * M * K);
-    cudaMalloc(&dB,sizeof(float) * K * N);
-    cudaMalloc(&dC, sizeof(float) * M * N);
-
-    initialize_tensor_value (M, N, K, hA, hB, hC);
-
-    cudaMemcpy(dA, hA, sizeof(float) * M * K, cudaMemcpyHostToDevice);
-    cudaMemcpy(dB, hB, sizeof(float) * K * N, cudaMemcpyHostToDevice);
-    cudaMemcpy(dC, hC, sizeof(float) * M * N, cudaMemcpyHostToDevice);
-
-    launch_naive_sgemm(M, N, K, alpha, dA, dB, beta, dC);
-    cudaDeviceSynchronize();
-
-    cudaMemcpy(hC, dC, sizeof(float) * M * N, cudaMemcpyDeviceToHost);
-    
-    cudaFree(dA); cudaFree(dB); cudaFree(dC);
-    free(hA), free(hB), free(hC);
-
-    return 0;
 }
