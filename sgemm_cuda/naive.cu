@@ -1,7 +1,9 @@
-#include <cuda_runtime.h>
-
 #include "common.cuh"
 #include "naive.cuh"
+
+#include <cstdint>
+#include <cstddef>
+#include <cuda_runtime.h>
 
 /**
  * @brief Single GEneral Matrix Multiply
@@ -16,8 +18,8 @@ __global__ void naive_sgemm(
     float alpha, const float *A, const float *B,
     float beta, float *C
 ) {
-    const uint rowIdx = blockIdx.y * blockDim.y + threadIdx.y;
-    const uint colIdx = blockIdx.x * blockDim.x + threadIdx.x;
+    const uint32_t rowIdx = blockIdx.y * blockDim.y + threadIdx.y;
+    const uint32_t colIdx = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (rowIdx < M && colIdx < N){
         /**
@@ -54,9 +56,11 @@ cudaError_t launch_naive_sgemm(
         return cudaSuccess;
 
     constexpr int BLOCK = 32;
-    const dim3 block(BLOCK, BLOCK);                           // 1024 threads
-    const dim3 grid(CEIL_DIV(N, BLOCK), CEIL_DIV(M, BLOCK));  // x -> cols, y -> rows
-    naive_sgemm<<<grid, block, 0, stream>>>(M, N, K, alpha, dA, dB, beta, dC);
+    constexpr size_t smem_size = 0; // naive kernel don't use shared memory
+    dim3 block(BLOCK, BLOCK); // 1024 threads
+    dim3 grid(CEIL_DIV(N, BLOCK), CEIL_DIV(M, BLOCK)); // x -> cols, y -> rows
+
+    naive_sgemm<<<grid, block, smem_size, stream>>>(M, N, K, alpha, dA, dB, beta, dC);
 
     return cudaGetLastError();
 }
