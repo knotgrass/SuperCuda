@@ -1,9 +1,9 @@
 # kernel-builder config (https://huggingface.co/docs/kernels/builder/writing-kernels).
-# This is the only source list: torch-ext/supercuda/_ops.py reads it for the dev (JIT) build,
+# This is the only source list: torch-ext/matmul/_ops.py reads it for the dev (JIT) build,
 # and kernel-builder reads it for Hub builds.
 
 [general]
-name = "supercuda"
+name = "matmul"
 version = 1
 edition = 6
 backends = ["cuda"]
@@ -15,12 +15,14 @@ src = [
 ]
 include = ["include"]
 
-[kernel.sgemm]
+[kernel.matmul]
 language = "cpp-cuda"
 depends = ["torch"]
 src = [
-  "sgemm_cuda/naive.cu",   # naive_sgemm kernel + launch_naive_sgemm (raw launcher)
-  "sgemm_cuda/naive.cuh",
-  "sgemm_cuda/sgemm.cu",   # sgemm_cuda: Torch op that calls the launcher
+  # one .cu + .cuh per kernel: the kernel and its raw launcher
+  "matmul_cuda/naive.cu",
+  "matmul_cuda/naive.cuh",
+  # the Torch ops: one per kernel, each calls its launcher
+  "matmul_cuda/ops.cu",
 ]
 include = ["include"]

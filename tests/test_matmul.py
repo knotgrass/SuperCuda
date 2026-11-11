@@ -1,11 +1,14 @@
-"""supercuda.sgemm vs. PyTorch: alpha * (A @ B) + beta * C in float32, TF32 off."""
+"""Every kernel in matmul.KERNELS vs. PyTorch: alpha * (A @ B) + beta * C in float32, TF32 off."""
 
 import pytest
 import torch
 
-import supercuda
+import matmul
 
 torch.backends.cuda.matmul.allow_tf32 = False
+
+# Run each test once per kernel: `-k naive` selects one kernel.
+all_kernels = pytest.mark.parametrize("kernel", list(matmul.KERNELS.values()), ids=list(matmul.KERNELS))
 
 # Sizes that are not multiples of the 32x32 block exercise the edge blocks; 1 and 0 the corner cases.
 SIZES = [
@@ -28,13 +31,14 @@ def make_inputs(M, N, K, seed=0):
     return A, B, C
 
 
+@all_kernels
 @pytest.mark.parametrize("M,N,K", SIZES)
 @pytest.mark.parametrize("alpha,beta", [(1.0, 0.0), (0.5, -0.1)])
-def test_sgemm_matches_torch(M, N, K, alpha, beta):
+def test_matches_torch(kernel, M, N, K, alpha, beta):
     A, B, C = make_inputs(M, N, K)
     C_in = C.clone()
 
-    out = supercuda.sgemm(A, B, C, alpha, beta)
+    out = kernel(A, B, C, alpha, beta)
     ref = alpha * (A @ B) + beta * C
 
     assert out.shape == (M, N)
@@ -43,21 +47,22 @@ def test_sgemm_matches_torch(M, N, K, alpha, beta):
     # The GPU sums K products in a different order than cuBLAS; 1e-3 is ~10x the expected
     # float32 rounding error for K ~ 1000 and far below any indexing bug.
     torch.testing.assert_close(out, ref, rtol=1e-3, atol=1e-3)
-    assert torch.equal(C, C_in), "sgemm must not modify C"
+    assert torch.equal(C, C_in), "a kernel must not modify C"
 
 
-def test_sgemm_rejects_bad_inputs():
+@all_kernels
+def test_rejects_bad_inputs(kernel):
     A, B, C = make_inputs(8, 6, 4)
 
     with pytest.raises(RuntimeError, match="contiguous"):
-        supercuda.sgemm(A.t().contiguous().t(), B, C)  # (8, 4) view with transposed strides
+        kernel(A.t().contiguous().t(), B, C)  # (8, 4) view with transposed strides
     with pytest.raises(RuntimeError, match="float32"):
-        supercuda.sgemm(A.half(), B.half(), C.half())
+        kernel(A.half(), B.half(), C.half())
     with pytest.raises(RuntimeError, match="B is"):
-        supercuda.sgemm(A, torch.randn(5, 6, device="cuda"), C)
+        kernel(A, torch.randn(5, 6, device="cuda"), C)
     with pytest.raises(RuntimeError, match="C must be"):
-        supercuda.sgemm(A, B, torch.randn(8, 7, device="cuda"))
+        kernel(A, B, torch.randn(8, 7, device="cuda"))
     with pytest.raises(RuntimeError, match="2-D"):
-        supercuda.sgemm(A.unsqueeze(0), B, C)
+        kernel(A.unsqueeze(0), B, C)
     with pytest.raises((RuntimeError, NotImplementedError)):  # no CPU implementation is registered
-        supercuda.sgemm(A.cpu(), B.cpu(), C.cpu())
+        kernel(A.cpu(), B.cpu(), C.cpu())

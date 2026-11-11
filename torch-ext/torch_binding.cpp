@@ -3,13 +3,13 @@
 #include "registration_dev.h"
 #include "torch_binding.h"
 
-// Every op is registered here, in the namespace TORCH_EXTENSION_NAME (= "supercuda" in the dev build),
-// so Python sees torch.ops.supercuda.<op>.
+// Every op is registered here, in the namespace TORCH_EXTENSION_NAME (= "matmul" in the dev build),
+// so Python sees torch.ops.matmul.<op>. One op per kernel, all with the same schema
+// (`float` in a schema is double in C++). To add a kernel, copy the def line and the impl line.
 TORCH_LIBRARY_EXPAND(TORCH_EXTENSION_NAME, ops) {
-    // The schema uses `float` for double; shapes and dtypes are checked in sgemm_cuda.
-    ops.def("sgemm(Tensor A, Tensor B, Tensor C, float alpha, float beta) -> Tensor");
+    ops.def("naive(Tensor A, Tensor B, Tensor C, float alpha, float beta) -> Tensor");
 #if defined(CUDA_KERNEL) || defined(ROCM_KERNEL)
-    ops.impl("sgemm", torch::kCUDA, &sgemm_cuda);
+    ops.impl("naive", torch::kCUDA, &naive_cuda);
 #endif
 }
 

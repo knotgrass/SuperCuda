@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run a command under compute-sanitizer. (cuda-memcheck was removed in CUDA 12.)
 # Usage: script/sanitizer.sh <tool> <command...>
-#   script/sanitizer.sh memcheck python -m pytest tests/test_vector_add.py -q
+#   script/sanitizer.sh memcheck python -m pytest tests/test_matmul.py -q
 #   script/sanitizer.sh racecheck csrc/bin/02_atomic.out
 # Tools:
 # • memcheck : memory errors (access violations, leaks, API errors)

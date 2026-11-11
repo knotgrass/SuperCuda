@@ -1,6 +1,18 @@
 # Parallel
 
-CUDA kernels for learning, called from Python as Torch ops (`torch.ops.supercuda.*`).
+CUDA kernels for learning. The matrix-multiply (SGEMM) series is a Torch extension, called from Python:
+
+```python
+import torch, matmul
+
+A = torch.randn(1000, 777, device="cuda")
+B = torch.randn(777, 1500, device="cuda")
+C = torch.randn(1000, 1500, device="cuda")
+out = matmul.naive(A, B, C, alpha=0.5, beta=-0.1)   # alpha * A @ B + beta * C
+```
+
+One function per kernel: `matmul.naive`, then `matmul.coalescing`, ... All have the same signature.
+`matmul.KERNELS` lists them; the tests and the benchmark loop over it.
 The layout follows Hugging Face [kernel-builder](https://huggingface.co/docs/kernels/builder/writing-kernels).
 
 ## Layout
@@ -8,19 +20,19 @@ The layout follows Hugging Face [kernel-builder](https://huggingface.co/docs/ker
 ```text
 SuperCuda/
 ├── build.toml            # kernel-builder config; also the source list for the JIT build
-├── common/common.cuh     # CEIL_DIV, CUDA_CHECK, shared __device__ helpers
-├── vector_add_cuda/      # kernel + launcher (takes torch::Tensor)
-├── reduction_cuda/       # 5 sum-reduction techniques, one op each
-├── sgemm_cuda/           # SGEMM lessons (naive: kernel body TODO)
+├── include/common.cuh    # CEIL_DIV, CUDA_CHECK
+├── matmul_cuda/
+│   ├── naive.cu, naive.cuh   # one kernel + its raw launcher (device pointers + stream, no Torch)
+│   └── ops.cu                # the Torch ops: one per kernel, each calls its launcher
 ├── torch-ext/
-│   ├── torch_binding.h   # declarations of all launchers
+│   ├── torch_binding.h   # declarations of all op functions
 │   ├── torch_binding.cpp # TORCH_LIBRARY registration of all ops
-│   └── supercuda/        # Python package: __init__.py (wrappers), _ops.py (dev JIT loader)
-├── tests/                # pytest: every op vs. a PyTorch reference
-├── benchmarks/           # triton do_bench: time, TFLOPS, GB/s
-├── csrc/                 # single-file programs with main() (lessons L1, L2, ...)
-├── script/               # build, compdb, sanitizer, ncu, nsys, compile_n_run; setup/ = env install
-├── third_party/          # third-party source (CUTLASS submodule: pending)
+│   └── matmul/           # Python package: __init__.py (wrappers, KERNELS), _ops.py (dev JIT loader)
+├── tests/                # pytest: every kernel vs. PyTorch
+├── benchmarks/           # benchmark_matmul.py (do_bench vs. cuBLAS), profile_matmul.py (driver for ncu, nsys)
+├── csrc/                 # standalone programs with main() (lessons L1, L2, sgemm/)
+├── script/               # build, compdb, sanitizer, ncu, nsys, roofline, compile_n_run; setup/ = env install
+├── third_party/          # third-party source (CUTLASS submodule)
 └── tutorial/             # slides (PDF) and notes/
 ```
 
@@ -28,12 +40,15 @@ How a Python call reaches a kernel:
 
 ```mermaid
 flowchart LR
-    T[build.toml] --> O["torch-ext/supercuda/_ops.py<br/>cpp_extension.load"]
-    O --> S["build/release (or debug)/supercuda.so"]
+    T[build.toml] --> O["torch-ext/matmul/_ops.py<br/>cpp_extension.load"]
+    O --> S["build/release (or debug)/matmul.so"]
     S --> R["torch_binding.cpp<br/>TORCH_LIBRARY"]
-    R --> N[torch.ops.supercuda.*]
-    N --> W[supercuda.vector_add, ...]
+    R --> N[torch.ops.matmul.naive]
+    N --> W[matmul.naive]
     W --> X[tests/, benchmarks/]
+    N --> P["ops.cu: naive_cuda"]
+    P --> L["naive.cu: launch_naive_sgemm"]
+    L --> K["naive_sgemm (GPU)"]
 ```
 
 ## Setup
@@ -68,14 +83,15 @@ All commands run from the repo root, in the `cxx` env.
 | Build (release: `-O3 -lineinfo`) | `script/build.sh release` |
 | Build (debug: `-O0 -g -G`) | `script/build.sh debug` |
 | Test | `python -m pytest tests -q` |
-| Benchmark | `python benchmarks/bench_reduction.py`, `python benchmarks/bench_sgemm.py` |
-| Memory errors | `script/sanitizer.sh memcheck python -m pytest tests/test_vector_add.py -q` |
-| One kernel, all metrics | `script/ncu.sh <kernel_regex> <report> python -m pytest tests/test_x.py -q` |
-| Timeline | `script/nsys.sh <report> python benchmarks/bench_reduction.py` |
+| Benchmark (all kernels vs. cuBLAS) | `python benchmarks/benchmark_matmul.py` |
+| Memory errors | `script/sanitizer.sh memcheck python -m pytest tests/test_matmul.py -q -x` |
+| One kernel, all metrics | `script/ncu.sh naive_sgemm naive_1024 python benchmarks/profile_matmul.py --kernel naive` |
+| Roofline of that report | `python script/roofline.py reports/naive_1024.ncu-rep --png` |
+| Timeline | `script/nsys.sh naive_1024 python benchmarks/profile_matmul.py --kernel naive` |
 | IntelliSense database | `script/compdb.sh` (after a release build) |
-| Standalone program | `script/compile_n_run.sh csrc/helloworld.cu` |
+| Standalone program | `script/compile_n_run.sh csrc/helloworld.cu`, `script/compile_n_run.sh csrc/sgemm` |
 
-- The first `import supercuda` compiles the extension into `build/<mode>/`. Later imports rebuild only changed files.
+- The first `import matmul` compiles the extension into `build/<mode>/matmul.so`. Later imports rebuild only changed files.
   `SUPERCUDA_BUILD=debug` selects the debug build.
 - Reports go to `reports/`. Open them with `ncu-ui` / `nsys-ui`.
 - `ncu` fails with `ERR_NVGPUCTRPERM` until GPU counters are open to normal users: see the comment in `script/ncu.sh`.
@@ -84,7 +100,7 @@ All commands run from the repo root, in the `cxx` env.
 ### Debug a kernel in VS Code
 
 1. Set a breakpoint in a `*_cuda/*.cu` file.
-2. Open the test file that calls the kernel, e.g. `tests/test_vector_add.py`.
+2. Open the test file that calls the kernel: `tests/test_matmul.py`.
 3. Start **cuda-gdb: pytest current file**. It builds the debug extension first (`ext: build debug`).
 
 For Python-side bugs, use **Python: pytest current file**.

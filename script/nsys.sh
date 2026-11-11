@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Profile a whole program with Nsight Systems: timeline of kernels, copies, and NVTX ranges.
 # Usage: script/nsys.sh <report_name> <command...>
-#   script/nsys.sh bench_reduction python benchmarks/bench_reduction.py
+#   script/nsys.sh naive_1024 python benchmarks/profile_matmul.py --kernel naive
 # Output: reports/<report_name>.nsys-rep (open it with nsys-ui).
 #
 # Replaces profile_perfommance.sh, which used:

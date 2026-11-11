@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Build the supercuda Torch extension (JIT): import the package once.
+# Build the matmul Torch extension (JIT): import the package once.
 # Usage: script/build.sh [release|debug]     (default: release)
-# Output: build/<mode>/supercuda.so. Sources come from build.toml.
+# Output: build/<mode>/matmul.so. Sources come from build.toml.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
@@ -24,4 +24,4 @@ if [[ -n "${CUDA_HOME:-}" && "$CUDA_HOME" != "${CONDA_PREFIX:-}" ]]; then
 fi
 
 SUPERCUDA_BUILD="$MODE" SUPERCUDA_VERBOSE=1 PYTHONPATH="$ROOT/torch-ext${PYTHONPATH:+:$PYTHONPATH}" \
-    python -c "import supercuda; print('supercuda ($MODE) ready:', supercuda.ops)"
+    python -c "import matmul; print('matmul ($MODE) ready, kernels:', ', '.join(matmul.KERNELS))"

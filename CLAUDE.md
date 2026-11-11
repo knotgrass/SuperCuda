@@ -6,14 +6,18 @@ Do not write a kernel body unless asked; write the launcher, test, and benchmark
 
 ## Layout
 
-- `build.toml`: kernel-builder config (edition 6). It is the **only** source list: `torch-ext/supercuda/_ops.py` reads it.
-- `<name>_cuda/*.cu`: kernel + launcher. `common/common.cuh`: `CEIL_DIV`, `CUDA_CHECK`, shared `__device__` helpers.
-- `torch-ext/torch_binding.{h,cpp}`: launcher declarations and op registration. `registration_dev.h` stands in for the
+- `build.toml`: kernel-builder config (edition 6). It is the **only** source list: `torch-ext/matmul/_ops.py` reads it.
+  Extension name: `matmul` (`import matmul`, `torch.ops.matmul.*`, `build/<mode>/matmul.so`).
+- `matmul_cuda/<kernel>.cu` + `<kernel>.cuh`: one kernel and its raw launcher (no Torch headers).
+  `matmul_cuda/ops.cu`: the Torch ops, one per kernel. `include/common.cuh`: `CEIL_DIV`, `CUDA_CHECK`.
+- `torch-ext/torch_binding.{h,cpp}`: op declarations and op registration. `registration_dev.h` stands in for the
   `registration.h` that kernel-builder generates.
-- `torch-ext/supercuda/`: `__init__.py` (one thin wrapper per op), `_ops.py` (dev JIT loader).
-- `tests/`, `benchmarks/`: pytest vs. PyTorch; `triton.testing.do_bench`.
-- `csrc/`: old single-file programs with `main()`. Keep their logic unchanged.
-- `script/`: build/profile wrappers; `script/setup/`: env install scripts (the user runs these, not Claude).
+- `torch-ext/matmul/`: `__init__.py` (one thin wrapper per kernel + the `KERNELS` dict), `_ops.py` (dev JIT loader).
+- `tests/`, `benchmarks/`: both loop over `matmul.KERNELS`. pytest vs. PyTorch; `triton.testing.do_bench` vs. cuBLAS;
+  `benchmarks/profile_matmul.py` is the launch-only driver for ncu and nsys.
+- `csrc/`: standalone programs with `main()`. Keep their logic unchanged. `csrc/sgemm/naive.{cu,cuh}` only include
+  `matmul_cuda/naive.{cu,cuh}`, so `main.cu` and the Torch op share one kernel source.
+- `script/`: build/profile wrappers, `roofline.py`; `script/setup/`: env install scripts (the user runs these, not Claude).
 
 ## Environment
 
@@ -21,28 +25,37 @@ Do not write a kernel body unless asked; write the launcher, test, and benchmark
 - `CUDA_HOME` must point to the env (`~/.zshrc` sets `/usr/local/cuda`, a different nvcc) and
   `TORCH_CUDA_ARCH_LIST=12.0` (8.6 on the A10). `script/setup/cuda.sh` sets both as conda env vars.
   If they are not set, pass them per command: `CUDA_HOME=$CONDA_PREFIX TORCH_CUDA_ARCH_LIST=12.0 script/build.sh`.
+- `SUPERCUDA_BUILD=debug` selects the debug build for any Python command (default: release).
 - C++20 everywhere: host, nvcc, IntelliSense.
 - Do not install, upgrade, or remove packages. Write the command and ask the user to run it.
 - Never `git add -A`: `libs/` holds a 1.4 GB local CUTLASS install (gitignored, but stage paths explicitly).
 
-## Launcher conventions (every `.cu` in `*_cuda/`)
+## Kernel, launcher, op conventions (`matmul_cuda/`)
 
-- Kernel keeps its lesson name; the launcher is `<op>_cuda` and takes/returns `torch::Tensor`.
-- Check inputs with `TORCH_CHECK`: CUDA device, same device, dtype, `is_contiguous()`, shapes.
-- `const c10::cuda::CUDAGuard guard(x.device());`
-- Return early when `numel() == 0` (a grid of 0 blocks is an invalid launch).
-- Launch on `at::cuda::getCurrentCUDAStream()`; call `C10_CUDA_KERNEL_LAUNCH_CHECK();` after each launch.
-- Use `torch::zeros` for an output that the kernel reads or accumulates into (atomics, `beta * C`).
-- No `PYBIND11_MODULE`. Register ops only in `torch-ext/torch_binding.cpp`. Op namespace: `supercuda`.
+Three layers. Every kernel computes `out = alpha * A @ B + beta * C` (row-major, float32).
+
+- **Kernel** `<kernel>_sgemm` (`__global__`): keeps its lesson name. The owner writes the body.
+- **Raw launcher** `launch_<kernel>_sgemm(M, N, K, alpha, dA, dB, beta, dC, stream)` in the same `.cu`, declared in
+  `<kernel>.cuh` with the same signature as `naive.cuh`:
+  - Takes device pointers and a stream. Computes grid/block, launches, returns `cudaGetLastError()`.
+  - Returns `cudaSuccess` early when `M == 0 || N == 0` (a grid of 0 blocks is an invalid launch).
+  - Does not allocate, copy to or from the host, synchronize, or include Torch headers (`csrc/` programs compile it).
+- **Torch op** `<kernel>_cuda` in `ops.cu`: one line, `return run_sgemm("<kernel>", launch_<kernel>_sgemm, A, B, C, alpha, beta);`.
+  `run_sgemm` is shared: `TORCH_CHECK` (CUDA device, same device, float32, `is_contiguous()`, shapes),
+  `c10::cuda::CUDAGuard`, `out = C.clone()` (the kernel reads `beta * C`, so not `torch::zeros`), early return when
+  `numel() == 0`, launch on `at::cuda::getCurrentCUDAStream()`, `C10_CUDA_CHECK(launch(...))`.
+- No `PYBIND11_MODULE`. Register ops only in `torch-ext/torch_binding.cpp`. Op namespace: `matmul`.
 
 ## Add a new kernel
 
-1. Create `<name>_cuda/<name>.cu` with kernel + launcher.
-2. Add the source to `build.toml` (a new `[kernel.<name>]` section, or the `src` list of an existing one).
-3. Declare the launcher in `torch-ext/torch_binding.h`.
-4. Register the op in `torch-ext/torch_binding.cpp` (`ops.def` schema + `ops.impl(..., torch::kCUDA, ...)`).
-5. Add a Python wrapper in `torch-ext/supercuda/__init__.py` and add it to `__all__`.
-6. Add a test in `tests/` (PyTorch reference, sizes that are not multiples of the block size) and a benchmark in `benchmarks/`.
+1. Create `matmul_cuda/<kernel>.cu` and `<kernel>.cuh`: the kernel and `launch_<kernel>_sgemm`.
+2. Add both files to the `src` list of `[kernel.matmul]` in `build.toml`.
+3. In `matmul_cuda/ops.cu`: include the header and add `<kernel>_cuda` (copy `naive_cuda`).
+4. Declare `<kernel>_cuda` in `torch-ext/torch_binding.h`; register it in `torch-ext/torch_binding.cpp`
+   (`ops.def` schema + `ops.impl(..., torch::kCUDA, ...)`, copy the two `naive` lines).
+5. In `torch-ext/matmul/__init__.py`: add the wrapper `<kernel>` and its entry in `KERNELS`.
+6. Tests and benchmarks loop over `matmul.KERNELS`: no change is needed. Add a test only for behaviour that is
+   specific to the kernel.
 
 Then run `script/build.sh release && python -m pytest tests -q`.
 

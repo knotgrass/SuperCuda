@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Profile one kernel launch with Nsight Compute (full metric set).
 # Usage: script/ncu.sh <kernel_regex> <report_name> <command...>
-#   script/ncu.sh vector_add va python -m pytest tests/test_vector_add.py -q
+#   script/ncu.sh naive_sgemm naive_1024 python benchmarks/profile_matmul.py --kernel naive
 # Output: reports/<report_name>.ncu-rep (open it with ncu-ui). -f overwrites an old report.
 # --launch-skip 3 skips the first 3 matching launches (warm-up); --launch-count 1 profiles one.
 # Profile a release build (-lineinfo). A debug build (-G) turns off device optimizations.

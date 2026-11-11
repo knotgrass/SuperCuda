@@ -1,11 +1,11 @@
-"""Dev (JIT) loader for the supercuda Torch extension.
+"""Dev (JIT) loader for the matmul Torch extension.
 
 kernel-builder generates a module with this name for Hub builds. This file stands in for it:
-on import it builds build/<mode>/supercuda.so from the sources listed in build.toml with
-torch.utils.cpp_extension.load (ninja + nvcc), loads the .so, and exposes torch.ops.supercuda
+on import it builds build/<mode>/matmul.so from the sources listed in build.toml with
+torch.utils.cpp_extension.load (ninja + nvcc), loads the .so, and exposes torch.ops.matmul
 as `ops`.
 
-Environment:
+Environment (the SUPERCUDA_ prefix is the repo name: these are build settings of the repo):
     SUPERCUDA_BUILD    release (default, -O3 -lineinfo) or debug (-O0 -g -G)
     SUPERCUDA_VERBOSE  1 prints the compiler commands
     CUDA_HOME          must point to the nvcc of the conda env (CLAUDE.md, script/setup/cuda.sh)
@@ -19,8 +19,8 @@ from pathlib import Path
 import torch
 from torch.utils.cpp_extension import load
 
-NAME = "supercuda"
-ROOT = Path(__file__).resolve().parents[2]  # <repo>/torch-ext/supercuda/_ops.py -> <repo>
+NAME = "matmul"
+ROOT = Path(__file__).resolve().parents[2]  # <repo>/torch-ext/matmul/_ops.py -> <repo>
 _SOURCE_SUFFIXES = (".cu", ".cpp", ".cc", ".c")
 
 
@@ -64,7 +64,7 @@ def _build():
     build_dir = ROOT / "build" / mode
     build_dir.mkdir(parents=True, exist_ok=True)
     load(
-        name=NAME,  # -> build/<mode>/supercuda.so, TORCH_EXTENSION_NAME=supercuda, PyInit_supercuda
+        name=NAME,  # -> build/<mode>/matmul.so, TORCH_EXTENSION_NAME=matmul, PyInit_matmul
         sources=sources,
         extra_include_paths=includes,
         extra_cflags=cflags,

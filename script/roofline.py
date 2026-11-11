@@ -2,8 +2,8 @@
 """Roofline of one kernel from an Nsight Compute report: FLOP/s vs. arithmetic intensity at DRAM, L2 and L1.
 
 Usage:
-    python script/roofline.py reports/sgemm_1024.ncu-rep              # table on stdout
-    python script/roofline.py reports/sgemm_1024.ncu-rep --png        # + reports/sgemm_1024_roofline.png
+    python script/roofline.py reports/naive_1024.ncu-rep              # table on stdout
+    python script/roofline.py reports/naive_1024.ncu-rep --png        # + reports/naive_1024_roofline.png
     python script/roofline.py reports/a.ncu-rep reports/b.ncu-rep --png   # several kernels on one chart
     python script/roofline.py reports/x.ncu-rep --dump                # raw metric rows (debug)
 
