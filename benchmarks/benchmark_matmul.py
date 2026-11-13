@@ -14,7 +14,8 @@ Columns:
                     alpha * A @ B + beta * C is 2MNK + 2MN. At K = 1024 that is 0.05 % or 0.1 %.
     % peak          GFLOP/s over the GPU's FP32 peak (PEAKS table below; 0 if the GPU is not listed)
     x cuBLAS        kernel time / cuBLAS time
-    AI max          FLOP / minimum bytes = 2MNK / 4(MK + KN + 2MN): read A, B, C once, write C once.
+    AI max          AI = arithmetic intensity = FLOP per byte of memory traffic (FLOP/B).
+                    AI max = FLOP / minimum bytes = 2MNK / 4(MK + KN + 2MN): read A, B, C once, write C once.
                     No kernel can move fewer bytes, so this is the HIGHEST arithmetic intensity at this size.
                     If it is above the ridge point (peak / bandwidth), a kernel that reuses data from the
                     caches can be compute-bound. A kernel that re-reads data from DRAM has a lower intensity.
@@ -57,7 +58,8 @@ def bench(M, N, K, kernels, peaks, alpha=0.5, beta=-0.1):
 
     flop = 2.0 * M * N * K                              # BLAS convention for GEMM (see the docstring)
     bytes_min = 4.0 * (M * K + K * N + 2 * M * N)       # read A, B, C once; write C once
-    ai_max = flop / bytes_min                           # fewest bytes -> highest arithmetic intensity
+    # AI = arithmetic intensity = FLOP per byte of memory traffic. Fewest bytes -> highest AI.
+    ai_max = flop / bytes_min
     print(f"\n{M} x {N} x {K}   FLOP {flop:.3e}   AI max {ai_max:.0f} FLOP/B")
 
     def row(name, ms, ms_ref):

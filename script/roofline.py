@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 """Roofline of one kernel from an Nsight Compute report: FLOP/s vs. arithmetic intensity at DRAM, L2 and L1.
 
+AI = arithmetic intensity = FLOP executed per byte moved at one memory level (FLOP/B).
+
 Usage:
     python script/roofline.py reports/naive_1024.ncu-rep              # table on stdout
     python script/roofline.py reports/naive_1024.ncu-rep --png        # + reports/naive_1024_roofline.png
@@ -105,7 +107,10 @@ def fmt(v, unit=""):
 
 
 def analyze(k, fp32_lanes):
-    """Return a dict with FLOP, FLOP/s, FP32 peak, and per-level (bytes, AI, achieved BW, peak BW, roof, ratio)."""
+    """Return a dict with FLOP, FLOP/s, FP32 peak, and per-level (bytes, AI, achieved BW, peak BW, roof, ratio).
+
+    AI = arithmetic intensity = FLOP / bytes at that level. BW = bandwidth (bytes per second).
+    """
     missing = [m for m in ("time", "ffma", "fmul", "fadd") if m not in k]
     if missing:
         sys.exit(f"metrics missing in the report: {missing}. Profile with script/ncu.sh (--set full).")
@@ -121,7 +126,7 @@ def analyze(k, fp32_lanes):
         bw = b / t
         pct = k.get(f"{lvl}_pct")
         peak_bw = bw / (pct / 100) if pct and pct > 0 else None
-        ai = flop / b if b > 0 else float("inf")
+        ai = flop / b if b > 0 else float("inf")   # AI = arithmetic intensity (FLOP per byte) at this level
         roof = None
         if peak_bw:
             roof = peak_bw * ai
