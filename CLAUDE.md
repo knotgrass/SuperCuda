@@ -15,6 +15,8 @@ Do not write a kernel body unless asked; write the launcher, test, and benchmark
 - `torch-ext/matmul/`: `__init__.py` (one thin wrapper per kernel + the `KERNELS` dict), `_ops.py` (dev JIT loader).
 - `tests/`, `benchmarks/`: both loop over `matmul.KERNELS`. pytest vs. PyTorch; `triton.testing.do_bench` vs. cuBLAS;
   `benchmarks/profile_matmul.py` is the launch-only driver for ncu and nsys.
+  `tests/conftest.py`: autouse fixture (TF32 off, `torch.cuda.synchronize()` after every test).
+  Daily loop: `python -m pytest tests -q -m "not slow"`.
 - `csrc/`: standalone programs with `main()`. Keep their logic unchanged. `csrc/sgemm/naive.{cu,cuh}` only include
   `matmul_cuda/naive.{cu,cuh}`, so `main.cu` and the Torch op share one kernel source.
 - `script/`: build/profile wrappers, `roofline.py`; `script/setup/`: env install scripts (the user runs these, not Claude).
