@@ -1,4 +1,4 @@
-"""Time every kernel in matmul.KERNELS against cuBLAS (torch.addmm, TF32 off), with the roofline lower bound.
+"""Time every kernel in matmul.KERNELS against cuBLAS (torch.addmm, TF32 off), with the ideal arithmetic intensity.
 
 Usage:
     python benchmarks/benchmark_matmul.py                          # all kernels, default sizes
@@ -7,12 +7,19 @@ Usage:
 Run script/build.sh release first. Never time a debug (-G) build.
 
 Columns:
-    ms, GFLOP/s     median of triton.testing.do_bench (L2 flushed between runs); FLOP = 2 M N K
+    ms, GFLOP/s     median of triton.testing.do_bench (L2 flushed between runs).
+                    FLOP = 2 M N K: the BLAS convention for GEMM (K multiplies + K adds per element of C).
+                    It is the same for every kernel, so GFLOP/s compares kernels by time only.
+                    Exact counts differ by a 1/K term: A @ B alone is 2MNK - MN (K - 1 adds per element);
+                    alpha * A @ B + beta * C is 2MNK + 2MN. At K = 1024 that is 0.05 % or 0.1 %.
     % peak          GFLOP/s over the GPU's FP32 peak (PEAKS table below; 0 if the GPU is not listed)
     x cuBLAS        kernel time / cuBLAS time
-    AI min          FLOP / minimum bytes = 2MNK / 4(MK + KN + 2MN): read A, B, C once, write C once.
-                    Above the ridge point (peak / bandwidth) the size is compute-bound in theory.
-The real bytes a kernel moves come from ncu: script/roofline.py reports/<name>.ncu-rep.
+    AI max          FLOP / minimum bytes = 2MNK / 4(MK + KN + 2MN): read A, B, C once, write C once.
+                    No kernel can move fewer bytes, so this is the HIGHEST arithmetic intensity at this size.
+                    If it is above the ridge point (peak / bandwidth), a kernel that reuses data from the
+                    caches can be compute-bound. A kernel that re-reads data from DRAM has a lower intensity.
+The bytes a kernel really moves, and the FP operations it really executes, come from ncu:
+script/roofline.py reports/<name>.ncu-rep.
 """
 
 import argparse
@@ -48,9 +55,10 @@ def bench(M, N, K, kernels, peaks, alpha=0.5, beta=-0.1):
     B = torch.randn(K, N, device="cuda")
     C = torch.randn(M, N, device="cuda")
 
-    flop = 2.0 * M * N * K
-    ai_min = flop / (4.0 * (M * K + K * N + 2 * M * N))
-    print(f"\n{M} x {N} x {K}   FLOP {flop:.3e}   AI min {ai_min:.0f} FLOP/B")
+    flop = 2.0 * M * N * K                              # BLAS convention for GEMM (see the docstring)
+    bytes_min = 4.0 * (M * K + K * N + 2 * M * N)       # read A, B, C once; write C once
+    ai_max = flop / bytes_min                           # fewest bytes -> highest arithmetic intensity
+    print(f"\n{M} x {N} x {K}   FLOP {flop:.3e}   AI max {ai_max:.0f} FLOP/B")
 
     def row(name, ms, ms_ref):
         gflops = flop / (ms * 1e-3) / 1e9

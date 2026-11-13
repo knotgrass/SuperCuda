@@ -10,6 +10,10 @@ Usage:
 The report must come from `script/ncu.sh` (--set full collects the roofline metrics). Metrics are read with
 `ncu --import <rep> --page raw --csv --print-units base`. Nothing is hard-coded per GPU:
   - FLOP       = 2 * ffma + fmul + fadd   (SASS thread instructions, predicated-on)
+                 These are the FP operations the kernel EXECUTED. benchmarks/benchmark_matmul.py counts the
+                 2MNK operations the algorithm needs. A kernel that does extra work per term (naive_sgemm
+                 multiplies by alpha inside the loop: fmul + ffma = 3 per term) shows FLOP = 3MNK here.
+                 Compare kernels with the benchmark's GFLOP/s; use this FLOP for the roofline position.
   - peak FP32  = SMs * FP32 lanes per SM * 2 * SM clock measured during the kernel (lanes: --fp32-lanes, 128 on
                  consumer Ampere/Ada/Blackwell, 64 on A100/H100)
   - peak BW    = achieved bytes/s / (% of peak that ncu reports), for DRAM, L2 and L1
@@ -135,7 +139,7 @@ def report(k, a, fp32_lanes):
         print(f"GPU    : {k['sm_count']:.0f} SMs x {fp32_lanes} FP32 lanes x 2 x {k['sm_clock'] / 1e9:.2f} GHz (clock during the kernel)"
               f"  ->  FP32 peak {fmt(a['peak'], 'FLOP/s')}")
     print(f"time   : {a['time'] * 1e3:9.3f} ms")
-    print(f"FLOP   : {a['flop']:.4g}  (ffma {k['ffma']:.3g} x2, fmul {k['fmul']:.3g}, fadd {k['fadd']:.3g})")
+    print(f"FLOP   : {a['flop']:.4g} executed  (ffma {k['ffma']:.3g} x2, fmul {k['fmul']:.3g}, fadd {k['fadd']:.3g})")
     line = f"FLOP/s : {fmt(a['flops'], 'FLOP/s')}"
     if a["peak"]:
         line += f"  = {100 * a['flops'] / a['peak']:5.1f} % of FP32 peak"
