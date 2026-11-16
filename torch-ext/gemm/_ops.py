@@ -1,8 +1,8 @@
-"""Dev (JIT) loader for the matmul Torch extension.
+"""Dev (JIT) loader for the gemm Torch extension.
 
 kernel-builder generates a module with this name for Hub builds. This file stands in for it:
-on import it builds build/<mode>/matmul.so from the sources listed in build.toml with
-torch.utils.cpp_extension.load (ninja + nvcc), loads the .so, and exposes torch.ops.matmul
+on import it builds build/<mode>/gemm.so from the sources listed in build.toml with
+torch.utils.cpp_extension.load (ninja + nvcc), loads the .so, and exposes torch.ops.gemm
 as `ops`.
 
 Environment (the SUPERCUDA_ prefix is the repo name: these are build settings of the repo):
@@ -19,8 +19,8 @@ from pathlib import Path
 import torch
 from torch.utils.cpp_extension import load
 
-NAME = "matmul"
-ROOT = Path(__file__).resolve().parents[2]  # <repo>/torch-ext/matmul/_ops.py -> <repo>
+NAME = "gemm"
+ROOT = Path(__file__).resolve().parents[2]  # <repo>/torch-ext/gemm/_ops.py -> <repo>
 _SOURCE_SUFFIXES = (".cu", ".cpp", ".cc", ".c")
 
 
@@ -64,13 +64,17 @@ def _build():
     build_dir = ROOT / "build" / mode
     build_dir.mkdir(parents=True, exist_ok=True)
     load(
-        name=NAME,  # -> build/<mode>/matmul.so, TORCH_EXTENSION_NAME=matmul, PyInit_matmul
+        name=NAME,  # -> build/<mode>/gemm.so, TORCH_EXTENSION_NAME=gemm, PyInit_gemm
         sources=sources,
         extra_include_paths=includes,
         extra_cflags=cflags,
         extra_cuda_cflags=cuda_cflags,
         build_directory=str(build_dir),
         verbose=verbose,
+        # False: load the .so with torch.ops.load_library, as the module that kernel-builder generates does.
+        # True (the default) imports the .so as a Python module with the name `gemm`. That module replaces
+        # this package in sys.modules, and `import gemm` then returns a module with no KERNELS.
+        is_python_module=False,
     )
     return getattr(torch.ops, NAME)
 

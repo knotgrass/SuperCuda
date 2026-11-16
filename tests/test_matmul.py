@@ -1,4 +1,4 @@
-"""Tests for the matmul kernels: every kernel must return alpha * A @ B + beta * C.
+"""Tests for the gemm kernels: every kernel must return alpha * A @ B + beta * C.
 
 Run:  python -m pytest tests -q              all tests
       python -m pytest tests -q -k naive     one kernel
@@ -15,13 +15,13 @@ Each pattern in this file is copied from a public test file:
 import pytest
 import torch
 
-import matmul
+import gemm
 
 torch.backends.cuda.matmul.allow_tf32 = False   # the reference A @ B must be true float32
 
-# [vllm] Test values. Add a size or an (alpha, beta) pair here; a new kernel is added in matmul.KERNELS.
+# [vllm] Test values. Add a size or an (alpha, beta) pair here; a new kernel is added in gemm.KERNELS.
 # The tests below do not change.
-KERNELS = list(matmul.KERNELS)   # names: ["naive", "coalescing", ...]
+KERNELS = list(gemm.KERNELS)   # names: ["naive", "coalescing", ...]
 SIZES = [                        # (M, N, K). The kernels work in 32 x 32 blocks.
     (1000, 1500, 777),           # [flash] no dimension is a multiple of 32: the edge blocks have unused threads
     (64, 96, 128),               # every dimension is a multiple of 32
@@ -52,7 +52,7 @@ def random_inputs(M, N, K):
 @pytest.mark.parametrize("name", KERNELS)
 def test_matches_torch(name, M, N, K, alpha, beta):
     """[relu] The result is close to PyTorch. A @ B runs cuBLAS: an independent implementation."""
-    kernel = matmul.KERNELS[name]
+    kernel = gemm.KERNELS[name]
     A, B, C = random_inputs(M, N, K)
 
     out = kernel(A, B, C, alpha, beta)
@@ -68,7 +68,7 @@ def test_inputs_are_not_modified():
     A, B, C = random_inputs(40, 50, 60)
     A_before, B_before, C_before = A.clone(), B.clone(), C.clone()
 
-    matmul.naive(A, B, C, 0.5, -0.1)
+    gemm.naive(A, B, C, 0.5, -0.1)
 
     assert torch.equal(A, A_before)
     assert torch.equal(B, B_before)
@@ -80,13 +80,13 @@ def test_rejects_bad_inputs():
     A, B, C = random_inputs(8, 6, 4)   # A: 8 x 4, B: 4 x 6, C: 8 x 6
 
     with pytest.raises(RuntimeError, match="float32"):
-        matmul.naive(A.double(), B.double(), C.double())
+        gemm.naive(A.double(), B.double(), C.double())
 
     with pytest.raises(RuntimeError, match="contiguous"):
-        matmul.naive(A[:, ::2], B, C)                            # every second column: not contiguous
+        gemm.naive(A[:, ::2], B, C)                            # every second column: not contiguous
 
     with pytest.raises(RuntimeError, match="B is"):
-        matmul.naive(A, torch.randn(5, 6, device="cuda"), C)     # A has 4 columns, B has 5 rows
+        gemm.naive(A, torch.randn(5, 6, device="cuda"), C)     # A has 4 columns, B has 5 rows
 
     with pytest.raises(RuntimeError, match="C must be"):
-        matmul.naive(A, B, torch.randn(8, 7, device="cuda"))     # C must be 8 x 6
+        gemm.naive(A, B, torch.randn(8, 7, device="cuda"))     # C must be 8 x 6

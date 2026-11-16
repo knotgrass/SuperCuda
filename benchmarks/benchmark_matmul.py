@@ -1,4 +1,4 @@
-"""Time every kernel in matmul.KERNELS against cuBLAS (torch.addmm, TF32 off), with the ideal arithmetic intensity.
+"""Time every kernel in gemm.KERNELS against cuBLAS (torch.addmm, TF32 off), with the ideal arithmetic intensity.
 
 Usage:
     python benchmarks/benchmark_matmul.py                          # all kernels, default sizes
@@ -31,7 +31,7 @@ import torch
 import triton.testing
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "torch-ext"))
-import matmul  # noqa: E402
+import gemm  # noqa: E402
 
 torch.backends.cuda.matmul.allow_tf32 = False
 
@@ -71,7 +71,7 @@ def bench(M, N, K, kernels, peaks, alpha=0.5, beta=-0.1):
     ms_ref = triton.testing.do_bench(lambda: torch.addmm(C, A, B, beta=beta, alpha=alpha), return_mode="median")
     row("cuBLAS", ms_ref, None)
     for name in kernels:
-        fn = matmul.KERNELS[name]
+        fn = gemm.KERNELS[name]
         ms = triton.testing.do_bench(lambda: fn(A, B, C, alpha, beta), return_mode="median")
         row(name, ms, ms_ref)
 
@@ -79,15 +79,15 @@ def bench(M, N, K, kernels, peaks, alpha=0.5, beta=-0.1):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("size", nargs="*", type=int, metavar="N", help="M N K (default: a list of sizes)")
-    parser.add_argument("--kernels", default=",".join(matmul.KERNELS),
-                        help=f"comma-separated kernel names (default: all = {','.join(matmul.KERNELS)})")
+    parser.add_argument("--kernels", default=",".join(gemm.KERNELS),
+                        help=f"comma-separated kernel names (default: all = {','.join(gemm.KERNELS)})")
     args = parser.parse_args()
     if len(args.size) not in (0, 3):
         parser.error("give M N K (three integers) or nothing")
     kernels = [k for k in args.kernels.split(",") if k]
-    unknown = [k for k in kernels if k not in matmul.KERNELS]
+    unknown = [k for k in kernels if k not in gemm.KERNELS]
     if unknown:
-        parser.error(f"unknown kernel(s) {unknown}; available: {list(matmul.KERNELS)}")
+        parser.error(f"unknown kernel(s) {unknown}; available: {list(gemm.KERNELS)}")
     sizes = [tuple(args.size)] if args.size else DEFAULT_SIZES
 
     name = torch.cuda.get_device_name()

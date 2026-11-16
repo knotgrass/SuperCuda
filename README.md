@@ -3,18 +3,18 @@
 CUDA kernels for learning. The matrix-multiply (SGEMM) series is a Torch extension, called from Python:
 
 ```python
-import torch, matmul
+import torch, gemm
 
 A = torch.randn(1000, 777, device="cuda")
 B = torch.randn(777, 1500, device="cuda")
 C = torch.randn(1000, 1500, device="cuda")
-out = matmul.naive(A, B, C, alpha=0.5, beta=-0.1)   # alpha * A @ B + beta * C
+out = gemm.naive(A, B, C, alpha=0.5, beta=-0.1)   # alpha * A @ B + beta * C
 ```
 
-One function per kernel: `matmul.naive`, then `matmul.coalescing`, ... All have the same signature.
-`matmul.KERNELS` lists them; the tests and the benchmark loop over it.
+One function per kernel: `gemm.naive`, then `gemm.coalescing`, ... All have the same signature.
+`gemm.KERNELS` lists them; the tests and the benchmark loop over it.
 The layout follows Hugging Face [kernel-builder](https://huggingface.co/docs/kernels/builder/writing-kernels),
-with one difference: the kernel sources are in `csrc/sgemm/`, not in a `matmul_cuda/` directory.
+with one difference: the kernel sources are in `csrc/gemm/`, not in a `gemm_cuda/` directory.
 
 ## Layout
 
@@ -23,7 +23,7 @@ SuperCuda/
 ├── build.toml            # kernel-builder config; also the source list for the JIT build
 ├── include/common.cuh    # CEIL_DIV, CUDA_CHECK
 ├── csrc/                 # all CUDA sources; one directory per program
-│   ├── sgemm/
+│   ├── gemm/
 │   │   ├── naive.cu, naive.cuh   # one kernel + its raw launcher (device pointers + stream, no Torch)
 │   │   └── main.cu               # standalone program that calls the launcher
 │   └── L1_vector_add/, L2_reduction/, *.cu   # older lessons, each file has a main()
@@ -31,7 +31,7 @@ SuperCuda/
 │   ├── ops.cu            # the Torch ops: one per kernel, each calls its launcher
 │   ├── torch_binding.h   # declarations of all op functions
 │   ├── torch_binding.cpp # TORCH_LIBRARY registration of all ops
-│   └── matmul/           # Python package: __init__.py (wrappers, KERNELS), _ops.py (dev JIT loader)
+│   └── gemm/             # Python package: __init__.py (wrappers, KERNELS), _ops.py (dev JIT loader)
 ├── tests/                # pytest: every kernel vs. PyTorch
 ├── benchmarks/           # benchmark_matmul.py (do_bench vs. cuBLAS), profile_matmul.py (driver for ncu, nsys)
 ├── script/               # build, compdb, sanitizer, ncu, nsys, roofline, compile_n_run; setup/ = env install
@@ -43,14 +43,14 @@ How a Python call reaches a kernel:
 
 ```mermaid
 flowchart LR
-    T[build.toml] --> O["torch-ext/matmul/_ops.py<br/>cpp_extension.load"]
-    O --> S["build/release (or debug)/matmul.so"]
+    T[build.toml] --> O["torch-ext/gemm/_ops.py<br/>cpp_extension.load"]
+    O --> S["build/release (or debug)/gemm.so"]
     S --> R["torch_binding.cpp<br/>TORCH_LIBRARY"]
-    R --> N[torch.ops.matmul.naive]
-    N --> W[matmul.naive]
+    R --> N[torch.ops.gemm.naive]
+    N --> W[gemm.naive]
     W --> X[tests/, benchmarks/]
     N --> P["torch-ext/ops.cu: naive_cuda"]
-    P --> L["csrc/sgemm/naive.cu: launch_naive_sgemm"]
+    P --> L["csrc/gemm/naive.cu: launch_naive_sgemm"]
     L --> K["naive_sgemm (GPU)"]
 ```
 
@@ -92,9 +92,9 @@ All commands run from the repo root, in the `cxx` env.
 | Roofline of that report | `python script/roofline.py reports/naive_1024.ncu-rep --png` |
 | Timeline | `script/nsys.sh naive_1024 python benchmarks/profile_matmul.py --kernel naive` |
 | IntelliSense database | `script/compdb.sh` (after a release build) |
-| Standalone program | `script/compile_n_run.sh csrc/helloworld.cu`, `script/compile_n_run.sh csrc/sgemm` |
+| Standalone program | `script/compile_n_run.sh csrc/helloworld.cu`, `script/compile_n_run.sh csrc/gemm` |
 
-- The first `import matmul` compiles the extension into `build/<mode>/matmul.so`. Later imports rebuild only changed files.
+- The first `import gemm` compiles the extension into `build/<mode>/gemm.so`. Later imports rebuild only changed files.
   `SUPERCUDA_BUILD=debug` selects the debug build.
 - Reports go to `reports/`. Open them with `ncu-ui` / `nsys-ui`.
 - `ncu` fails with `ERR_NVGPUCTRPERM` until GPU counters are open to normal users: see the comment in `script/ncu.sh`.
@@ -102,7 +102,7 @@ All commands run from the repo root, in the `cxx` env.
 
 ### Debug a kernel in VS Code
 
-1. Set a breakpoint in a kernel file, for example `csrc/sgemm/naive.cu`.
+1. Set a breakpoint in a kernel file, for example `csrc/gemm/naive.cu`.
 2. Open the test file that calls the kernel: `tests/test_matmul.py`.
 3. Start **cuda-gdb: pytest current file**. It builds the debug extension first (`ext: build debug`).
 

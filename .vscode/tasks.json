@@ -16,7 +16,7 @@
     },
     "tasks": [
         {
-            // Program directory: main.cu + kernel files, like csrc/sgemm/. Compiles every *.cu and *.cpp in the
+            // Program directory: main.cu + kernel files, like csrc/gemm/. Compiles every *.cu and *.cpp in the
             // directory of the active file, so keep one main() per directory. Output: csrc/bin/<dirname>.out
             "type": "process",
             "label": "C/C++: nvcc build active dir",

@@ -1,7 +1,7 @@
-"""matmul: the SGEMM kernels of the CUDA learning series, as Torch ops.
+"""gemm: the SGEMM kernels of the CUDA learning series, as Torch ops.
 
-    import matmul
-    out = matmul.naive(A, B, C, alpha, beta)      # alpha * A @ B + beta * C
+    import gemm
+    out = gemm.naive(A, B, C, alpha, beta)      # alpha * A @ B + beta * C
 
 Importing this package builds the extension (see _ops.py). Every kernel has the same signature:
 A: (M, K), B: (K, N), C: (M, N); float32, contiguous, on the same CUDA device. It returns a new

@@ -1,22 +1,22 @@
 # CLAUDE.md
 
 CUDA learning repo. Kernels are Torch ops in the Hugging Face kernel-builder layout, with one difference:
-the kernel sources are in `csrc/sgemm/`, not in a `<name>_cuda/` directory.
+the kernel sources are in `csrc/gemm/`, not in a `<name>_cuda/` directory.
 The owner writes the kernel bodies (SGEMM series next: naive, then Strassen, Winograd, tensor cores).
 Do not write a kernel body unless asked; write the launcher, test, and benchmark around it.
 
 ## Layout
 
-- `build.toml`: kernel-builder config (edition 6). It is the **only** source list: `torch-ext/matmul/_ops.py` reads it.
-  Extension name: `matmul` (`import matmul`, `torch.ops.matmul.*`, `build/<mode>/matmul.so`).
-- `csrc/sgemm/<kernel>.cu` + `<kernel>.cuh`: one kernel and its raw launcher (no Torch headers).
-  `csrc/sgemm/main.cu`: the standalone program for these kernels. `include/common.cuh`: `CEIL_DIV`, `CUDA_CHECK`.
-- `torch-ext/ops.cu`: the Torch ops, one per kernel. It is not in `csrc/sgemm/`: the standalone build compiles
+- `build.toml`: kernel-builder config (edition 6). It is the **only** source list: `torch-ext/gemm/_ops.py` reads it.
+  Extension name: `gemm` (`import gemm`, `torch.ops.gemm.*`, `build/<mode>/gemm.so`).
+- `csrc/gemm/<kernel>.cu` + `<kernel>.cuh`: one kernel and its raw launcher (no Torch headers).
+  `csrc/gemm/main.cu`: the standalone program for these kernels. `include/common.cuh`: `CEIL_DIV`, `CUDA_CHECK`.
+- `torch-ext/ops.cu`: the Torch ops, one per kernel. It is not in `csrc/gemm/`: the standalone build compiles
   every `*.cu` of that directory, and `ops.cu` needs the Torch headers.
 - `torch-ext/torch_binding.{h,cpp}`: op declarations and op registration. `registration_dev.h` stands in for the
   `registration.h` that kernel-builder generates.
-- `torch-ext/matmul/`: `__init__.py` (one thin wrapper per kernel + the `KERNELS` dict), `_ops.py` (dev JIT loader).
-- `tests/`, `benchmarks/`: both loop over `matmul.KERNELS`. pytest vs. PyTorch; `triton.testing.do_bench` vs. cuBLAS;
+- `torch-ext/gemm/`: `__init__.py` (one thin wrapper per kernel + the `KERNELS` dict), `_ops.py` (dev JIT loader).
+- `tests/`, `benchmarks/`: both loop over `gemm.KERNELS`. pytest vs. PyTorch; `triton.testing.do_bench` vs. cuBLAS;
   `benchmarks/profile_matmul.py` is the launch-only driver for ncu and nsys.
   `tests/test_matmul.py` is kept small on purpose: one result test (kernel x size x alpha/beta) and two tests of
   `run_sgemm`. No fixtures, markers or helpers beyond `random_inputs`. Its docstring names the public test files
@@ -36,7 +36,7 @@ Do not write a kernel body unless asked; write the launcher, test, and benchmark
 - Do not install, upgrade, or remove packages. Write the command and ask the user to run it.
 - Never `git add -A`: `libs/` holds a 1.4 GB local CUTLASS install (gitignored, but stage paths explicitly).
 
-## Kernel, launcher, op conventions (`csrc/sgemm/`, `torch-ext/ops.cu`)
+## Kernel, launcher, op conventions (`csrc/gemm/`, `torch-ext/ops.cu`)
 
 Three layers. Every kernel computes `out = alpha * A @ B + beta * C` (row-major, float32).
 
@@ -50,17 +50,17 @@ Three layers. Every kernel computes `out = alpha * A @ B + beta * C` (row-major,
   `run_sgemm` is shared: `TORCH_CHECK` (CUDA device, same device, float32, `is_contiguous()`, shapes),
   `c10::cuda::CUDAGuard`, `out = C.clone()` (the kernel reads `beta * C`, so not `torch::zeros`), early return when
   `numel() == 0`, launch on `at::cuda::getCurrentCUDAStream()`, `C10_CUDA_CHECK(launch(...))`.
-- No `PYBIND11_MODULE`. Register ops only in `torch-ext/torch_binding.cpp`. Op namespace: `matmul`.
+- No `PYBIND11_MODULE`. Register ops only in `torch-ext/torch_binding.cpp`. Op namespace: `gemm`.
 
 ## Add a new kernel
 
-1. Create `csrc/sgemm/<kernel>.cu` and `<kernel>.cuh`: the kernel and `launch_<kernel>_sgemm`.
-2. Add both files to the `src` list of `[kernel.matmul]` in `build.toml`.
+1. Create `csrc/gemm/<kernel>.cu` and `<kernel>.cuh`: the kernel and `launch_<kernel>_sgemm`.
+2. Add both files to the `src` list of `[kernel.gemm]` in `build.toml`.
 3. In `torch-ext/ops.cu`: include the header and add `<kernel>_cuda` (copy `naive_cuda`).
 4. Declare `<kernel>_cuda` in `torch-ext/torch_binding.h`; register it in `torch-ext/torch_binding.cpp`
    (`ops.def` schema + `ops.impl(..., torch::kCUDA, ...)`, copy the two `naive` lines).
-5. In `torch-ext/matmul/__init__.py`: add the wrapper `<kernel>` and its entry in `KERNELS`.
-6. Tests and benchmarks loop over `matmul.KERNELS`: no change is needed. Add a test only for behaviour that is
+5. In `torch-ext/gemm/__init__.py`: add the wrapper `<kernel>` and its entry in `KERNELS`.
+6. Tests and benchmarks loop over `gemm.KERNELS`: no change is needed. Add a test only for behaviour that is
    specific to the kernel.
 
 Then run `script/build.sh release && python -m pytest tests -q`.
