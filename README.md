@@ -13,7 +13,8 @@ out = matmul.naive(A, B, C, alpha=0.5, beta=-0.1)   # alpha * A @ B + beta * C
 
 One function per kernel: `matmul.naive`, then `matmul.coalescing`, ... All have the same signature.
 `matmul.KERNELS` lists them; the tests and the benchmark loop over it.
-The layout follows Hugging Face [kernel-builder](https://huggingface.co/docs/kernels/builder/writing-kernels).
+The layout follows Hugging Face [kernel-builder](https://huggingface.co/docs/kernels/builder/writing-kernels),
+with one difference: the kernel sources are in `csrc/sgemm/`, not in a `matmul_cuda/` directory.
 
 ## Layout
 
@@ -21,16 +22,18 @@ The layout follows Hugging Face [kernel-builder](https://huggingface.co/docs/ker
 SuperCuda/
 ├── build.toml            # kernel-builder config; also the source list for the JIT build
 ├── include/common.cuh    # CEIL_DIV, CUDA_CHECK
-├── matmul_cuda/
-│   ├── naive.cu, naive.cuh   # one kernel + its raw launcher (device pointers + stream, no Torch)
-│   └── ops.cu                # the Torch ops: one per kernel, each calls its launcher
+├── csrc/                 # all CUDA sources; one directory per program
+│   ├── sgemm/
+│   │   ├── naive.cu, naive.cuh   # one kernel + its raw launcher (device pointers + stream, no Torch)
+│   │   └── main.cu               # standalone program that calls the launcher
+│   └── L1_vector_add/, L2_reduction/, *.cu   # older lessons, each file has a main()
 ├── torch-ext/
+│   ├── ops.cu            # the Torch ops: one per kernel, each calls its launcher
 │   ├── torch_binding.h   # declarations of all op functions
 │   ├── torch_binding.cpp # TORCH_LIBRARY registration of all ops
 │   └── matmul/           # Python package: __init__.py (wrappers, KERNELS), _ops.py (dev JIT loader)
 ├── tests/                # pytest: every kernel vs. PyTorch
 ├── benchmarks/           # benchmark_matmul.py (do_bench vs. cuBLAS), profile_matmul.py (driver for ncu, nsys)
-├── csrc/                 # standalone programs with main() (lessons L1, L2, sgemm/)
 ├── script/               # build, compdb, sanitizer, ncu, nsys, roofline, compile_n_run; setup/ = env install
 ├── third_party/          # third-party source (CUTLASS submodule)
 └── tutorial/             # slides (PDF) and notes/
@@ -46,8 +49,8 @@ flowchart LR
     R --> N[torch.ops.matmul.naive]
     N --> W[matmul.naive]
     W --> X[tests/, benchmarks/]
-    N --> P["ops.cu: naive_cuda"]
-    P --> L["naive.cu: launch_naive_sgemm"]
+    N --> P["torch-ext/ops.cu: naive_cuda"]
+    P --> L["csrc/sgemm/naive.cu: launch_naive_sgemm"]
     L --> K["naive_sgemm (GPU)"]
 ```
 
@@ -99,7 +102,7 @@ All commands run from the repo root, in the `cxx` env.
 
 ### Debug a kernel in VS Code
 
-1. Set a breakpoint in a `*_cuda/*.cu` file.
+1. Set a breakpoint in a kernel file, for example `csrc/sgemm/naive.cu`.
 2. Open the test file that calls the kernel: `tests/test_matmul.py`.
 3. Start **cuda-gdb: pytest current file**. It builds the debug extension first (`ext: build debug`).
 

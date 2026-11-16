@@ -14,7 +14,7 @@
 
 namespace {
 
-// Every launcher in this directory has this signature (see naive.cuh).
+// Every launcher in csrc/sgemm/ has this signature (see naive.cuh).
 using SgemmLauncher = cudaError_t (*)(int M, int N, int K,
                                       float alpha, const float* dA, const float* dB,
                                       float beta, float* dC, cudaStream_t stream);
@@ -69,7 +69,7 @@ torch::Tensor run_sgemm(const char* op, SgemmLauncher launch,
 
 }  // namespace
 
-// matmul.naive: one thread per element of C (naive.cu).
+// matmul.naive: one thread per element of C (csrc/sgemm/naive.cu).
 torch::Tensor naive_cuda(const torch::Tensor& A, const torch::Tensor& B, const torch::Tensor& C,
                          double alpha, double beta) {
     return run_sgemm("naive", launch_naive_sgemm, A, B, C, alpha, beta);

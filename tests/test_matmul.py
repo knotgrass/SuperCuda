@@ -61,7 +61,7 @@ def test_matches_torch(name, M, N, K, alpha, beta):
     torch.testing.assert_close(out, expected, rtol=RTOL, atol=ATOL)   # also checks shape, dtype, device
 
 
-# The two tests below check run_sgemm (matmul_cuda/ops.cu). All kernels share it, so one kernel is enough.
+# The two tests below check run_sgemm (torch-ext/ops.cu). All kernels share it, so one kernel is enough.
 
 def test_inputs_are_not_modified():
     """The op returns a new tensor: the kernel writes to a copy of C."""

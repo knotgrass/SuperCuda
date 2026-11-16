@@ -54,7 +54,7 @@
             "preLaunchTask": "C/C++: nvcc build active file"
         },
         {
-            // Kernel debugging through pytest: set a breakpoint in a *_cuda/*.cu file, open a tests/test_*.py file.
+            // Kernel debugging through pytest: set a breakpoint in a kernel file (csrc/sgemm/*.cu), open a tests/test_*.py file.
             // Uses the debug build (-G) in build/debug.
             "name": "cuda-gdb: pytest current file",
             "type": "cuda-gdb",

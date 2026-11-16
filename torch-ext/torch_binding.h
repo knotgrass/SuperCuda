@@ -1,7 +1,7 @@
 #pragma once
 #include <torch/torch.h>
 
-// Declarations of every Torch op function. Definitions: matmul_cuda/ops.cu.
+// Declarations of every Torch op function. Definitions: ops.cu.
 //
 // All ops share the SGEMM signature:
 //     out = alpha * A @ B + beta * C. Returns a new tensor; C is not modified.

@@ -20,9 +20,10 @@ language = "cpp-cuda"
 depends = ["torch"]
 src = [
   # one .cu + .cuh per kernel: the kernel and its raw launcher
-  "matmul_cuda/naive.cu",
-  "matmul_cuda/naive.cuh",
+  "csrc/sgemm/naive.cu",
+  "csrc/sgemm/naive.cuh",
   # the Torch ops: one per kernel, each calls its launcher
-  "matmul_cuda/ops.cu",
+  "torch-ext/ops.cu",
 ]
-include = ["include"]
+# csrc/sgemm: ops.cu includes the launcher headers ("naive.cuh")
+include = ["include", "csrc/sgemm"]

@@ -1,3 +1,7 @@
 #pragma once
-// Forwarding header: the launcher is declared in matmul_cuda/naive.cuh (see naive.cu here).
-#include "../../matmul_cuda/naive.cuh"
+#include <cuda_runtime.h>
+
+cudaError_t launch_naive_sgemm(
+    int M, int N, int K,
+    float alpha, const float *dA, const float *dB,
+    float beta, float *dC, cudaStream_t stream = nullptr);
