@@ -1,6 +1,7 @@
 #! /bin/bash
-conda install -c conda-forge gcc=13.4.0 -y
-conda install -c conda-forge gxx=13.4.0 -y
+set -e
+
+conda install -c conda-forge gcc=15.3.0 gxx=15.3.0 -y
 # conda install -c conda-forge cxx-compiler -y
 
 # run C++ in Jupyter Notebook

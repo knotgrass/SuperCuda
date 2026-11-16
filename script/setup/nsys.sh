@@ -1,5 +1,5 @@
 #! /bin/bash
-# Install Nsight Systems (nsys, nsys-ui) from the NVIDIA apt repo, and link it into the conda env.
+# Install Nsight Systems (nsys, nsys-ui) into the conda env.
 # Run it from an activated env: `conda activate cxx && bash script/setup/nsys.sh`.
 set -e
 
@@ -9,24 +9,18 @@ if [ "${CONDA_DEFAULT_ENV:-}" != "$CONDAENV" ]; then
     exit 1
 fi
 
-# 2026.3.2 is the Nsight Systems of CUDA 13.4: apt cuda-nsight-systems-13-4 depends on it and adds
-# only a wrapper in /usr/local/cuda-13.4/bin, so install the plain package.
-# Not from conda: nsight-systems is on conda-forge only. A dry-run (2026-10-25) showed that it
-# downgrades python 3.13.14 to 3.13.2 and moves about 25 pkgs/main libraries to conda-forge.
-NSYS_VERSION="2026.3.2"
-sudo apt update -y
-if ! apt-cache show "nsight-systems-$NSYS_VERSION" >/dev/null 2>&1; then
-    echo "apt has no nsight-systems-$NSYS_VERSION. Add the NVIDIA CUDA repo (cuda-keyring) first:" >&2
-    echo "  https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#network-repo-installation-for-ubuntu" >&2
+# nsight-systems is on conda-forge only. 2026.5.2.323 is its newest build (the nsys of CUDA 13.5).
+# The package has no cuda-version dependency, so it installs next to cuda=13.4.3 (cuda.sh).
+# nsight-systems has nsys-ui and depends on nsight-systems-cli, which has nsys.
+# NVIDIA has a newer version (2026.6.1) as a .deb file only:
+#   https://developer.download.nvidia.com/devtools/repos/ubuntu2604/amd64/nsight-systems-2026.6.1_2026.6.1.251-1_amd64.deb
+# Run cuda.sh first: it moves the env to conda-forge. A dry-run (2026-11-16) of this install on the
+# env before cuda.sh (CUDA 13.0.2 from the nvidia channel) downgraded python 3.13.18 to 3.13.2.
+if ! grep -qs "conda-forge" "$CONDA_PREFIX"/conda-meta/cuda-version-*.json; then
+    echo "cuda-version in $CONDA_PREFIX is not from conda-forge: run script/setup/cuda.sh first." >&2
     exit 1
 fi
-sudo apt install "nsight-systems-$NSYS_VERSION" -y
-
-# PATH has /usr/local/cuda/bin (~/.zshrc) before /usr/local/bin, so `nsys` is the CUDA 13.3 one (2026.1.3).
-# The links in $CONDA_PREFIX/bin come first on PATH while the env is active. Remove them with `rm`.
-NSYS_DIR="/opt/nvidia/nsight-systems/$NSYS_VERSION"
-ln -sf "$NSYS_DIR/bin/nsys" "$CONDA_PREFIX/bin/nsys"
-ln -sf "$NSYS_DIR/bin/nsys-ui" "$CONDA_PREFIX/bin/nsys-ui"
+conda install nsight-systems=2026.5.2.323 --override-channels -c conda-forge --name "$CONDAENV" -y
 command -v nsys
 nsys --version
 

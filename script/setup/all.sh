@@ -13,14 +13,12 @@ fi
 SETUP_DIR="$(dirname "$(realpath "$0")")"
 # gxx.sh first: nvcc needs a host compiler. install_cutlass.sh last: its build needs nvcc and g++.
 STEPS=(
-    gxx.sh                 # gcc/g++ 13.4, gdb
-    cuda.sh                # CUDA 13.4.3, torch, CUDA libraries, CUDA_HOME and TORCH_CUDA_ARCH_LIST
-    nvcc.sh                # nvcc
-    ncu.sh                 # Nsight Compute, GPU counter permission
+    gxx.sh                 # gcc/g++ 15.3, gdb
+    cuda.sh                # CUDA 13.4.3 (nvcc, compute-sanitizer, ncu), CUDA_HOME and TORCH_CUDA_ARCH_LIST
+    ncu.sh                 # Nsight Compute: UI libraries, GPU counter permission
     nsys.sh                # Nsight Systems
-    compute_sanitizer.sh   # compute-sanitizer
     cudnn.sh               # cuDNN, cudnn-frontend
-    install_libtorch.sh    # torch (C++ headers and libs)
+    install_libtorch.sh    # torch 2.15.0 for cu134 (Python package, C++ headers and libs), ninja
     install_cutlass.sh     # CUTLASS into libs/cutlass
 )
 for step in "${STEPS[@]}"; do
