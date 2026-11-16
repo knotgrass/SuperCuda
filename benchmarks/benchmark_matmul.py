@@ -20,7 +20,7 @@ Columns:
                     If it is above the ridge point (peak / bandwidth), a kernel that reuses data from the
                     caches can be compute-bound. A kernel that re-reads data from DRAM has a lower intensity.
 The bytes a kernel really moves, and the FP operations it really executes, come from ncu:
-script/roofline.py reports/<name>.ncu-rep.
+script/roofline.py reports/<name>.ncu-repz.
 """
 
 import argparse

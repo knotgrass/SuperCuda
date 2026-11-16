@@ -9,6 +9,7 @@ csrc/bin/
 # Profiler reports (script/ncu.sh, script/nsys.sh)
 reports/
 *.ncu-rep
+*.ncu-repz
 *.nsys-rep
 
 # Python

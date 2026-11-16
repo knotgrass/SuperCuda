@@ -89,7 +89,7 @@ All commands run from the repo root, in the `cxx` env.
 | Benchmark (all kernels vs. cuBLAS) | `python benchmarks/benchmark_matmul.py` |
 | Memory errors | `script/sanitizer.sh memcheck python -m pytest tests/test_matmul.py -q -x` |
 | One kernel, all metrics | `script/ncu.sh naive_sgemm naive_1024 python benchmarks/profile_matmul.py --kernel naive` |
-| Roofline of that report | `python script/roofline.py reports/naive_1024.ncu-rep --png` |
+| Roofline of that report | `python script/roofline.py reports/naive_1024.ncu-repz --png` |
 | Timeline | `script/nsys.sh naive_1024 python benchmarks/profile_matmul.py --kernel naive` |
 | IntelliSense database | `script/compdb.sh` (after a release build) |
 | Standalone program | `script/compile_n_run.sh csrc/helloworld.cu`, `script/compile_n_run.sh csrc/gemm` |
