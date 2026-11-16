@@ -11,15 +11,15 @@ if [ "${CONDA_DEFAULT_ENV:-}" != "$CONDAENV" ]; then
 fi
 
 SETUP_DIR="$(dirname "$(realpath "$0")")"
-# gxx.sh first: nvcc needs a host compiler. install_cutlass.sh last: its build needs nvcc and g++.
+# gxx.sh first: nvcc needs a host compiler. cutlass.sh last: its build needs nvcc and g++.
 STEPS=(
     gxx.sh                 # gcc/g++ 15.3, gdb
     cuda.sh                # CUDA 13.4.3 (nvcc, compute-sanitizer, ncu), CUDA_HOME and TORCH_CUDA_ARCH_LIST
     ncu.sh                 # Nsight Compute: UI libraries, GPU counter permission
     nsys.sh                # Nsight Systems
     cudnn.sh               # cuDNN, cudnn-frontend
-    install_libtorch.sh    # torch 2.15.0 for cu134 (Python package, C++ headers and libs), ninja
-    install_cutlass.sh     # CUTLASS into libs/cutlass
+    pytorch.sh             # torch 2.15.0 for cu134 (Python package, C++ headers and libs), ninja
+    cutlass.sh             # CUTLASS into libs/cutlass
 )
 for step in "${STEPS[@]}"; do
     echo "==== script/setup/$step"

@@ -1,6 +1,6 @@
 #! /bin/bash
 # Install PyTorch (Python package, C++ headers and libs) into the conda env.
-# Run it from an activated env: `conda activate cxx && bash script/setup/install_libtorch.sh`.
+# Run it from an activated env: `conda activate cxx && bash script/setup/pytorch.sh`.
 set -e
 
 CONDAENV="cxx"    # edit conda env name

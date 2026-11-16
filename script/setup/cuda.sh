@@ -1,5 +1,5 @@
 #! /bin/bash
-# Install the CUDA toolkit into the conda env. PyTorch: script/setup/install_libtorch.sh.
+# Install the CUDA toolkit into the conda env. PyTorch: script/setup/pytorch.sh.
 # Run it from an activated env: `conda activate cxx && bash script/setup/cuda.sh`.
 set -e
 

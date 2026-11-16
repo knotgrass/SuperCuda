@@ -4,9 +4,9 @@ Third-party source code only. Install scripts are in `script/setup/`.
 
 ## CUTLASS
 
-`third_party/cutlass` is a git submodule, pinned to `v4.8.1` (the tag in `script/setup/install_cutlass.sh`).
+`third_party/cutlass` is a git submodule, pinned to `v4.8.1` (the tag in `script/setup/cutlass.sh`).
 The include path of the repo is the install in `libs/cutlass/include`, not this source tree: that one tree
-holds `cutlass/`, `cute/` and `cutlass/util/` together. Run `script/setup/install_cutlass.sh` once after a clone.
+holds `cutlass/`, `cute/` and `cutlass/util/` together. Run `script/setup/cutlass.sh` once after a clone.
 
 Get it after a clone:
 
@@ -22,4 +22,4 @@ git -C third_party/cutlass checkout v4.8.1
 git add third_party/cutlass
 ```
 
-Then set the same tag in `script/setup/install_cutlass.sh`.
+Then set the same tag in `script/setup/cutlass.sh`.

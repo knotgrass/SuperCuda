@@ -3,7 +3,7 @@
 # libs/cutlass/include is the CUTLASS include path of the repo (cutlass/, cute/ and cutlass/util/ in one tree),
 # so run this once after a clone.
 # Steps: build (tests included) -> run the unit tests -> install. The build tree stays, so a rerun is incremental.
-# Usage: script/setup/install_cutlass.sh      (conda activate cxx first; JOBS=4 if the build runs out of RAM)
+# Usage: script/setup/cutlass.sh      (conda activate cxx first; JOBS=4 if the build runs out of RAM)
 
 # conda install cutlass -c conda-forge -y
 set -euo pipefail

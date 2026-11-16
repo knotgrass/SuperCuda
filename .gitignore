@@ -15,5 +15,5 @@ reports/
 __pycache__/
 .pytest_cache/
 
-# Local CUTLASS install from script/setup/install_cutlass.sh (about 1.4 GB)
+# Local CUTLASS install from script/setup/cutlass.sh (about 1.4 GB)
 libs/
