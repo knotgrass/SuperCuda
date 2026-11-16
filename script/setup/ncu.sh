@@ -1,5 +1,6 @@
 #! /bin/bash
-# Install Nsight Compute (ncu, ncu-ui) into the conda env, and let a normal user read GPU counters.
+# System setup for Nsight Compute: UI libraries, and GPU counter access for a normal user.
+# ncu and ncu-ui come from the `cuda` metapackage of conda (script/setup/cuda.sh): there is no install here.
 # Run it from an activated env: `conda activate cxx && bash script/setup/ncu.sh`.
 set -e
 
@@ -9,8 +10,10 @@ if [ "${CONDA_DEFAULT_ENV:-}" != "$CONDAENV" ]; then
     exit 1
 fi
 
-# nsight-compute 2026.3.1.2 is the ncu in cuda=13.4.3 (cuda.sh). It needs cuda-version 13.4.
-conda install nsight-compute=2026.3.1.2 --override-channels -c pkgs/main --name "$CONDAENV" -y
+if [ ! -x "$CONDA_PREFIX/bin/ncu" ]; then
+    echo "No ncu in $CONDA_PREFIX/bin: run script/setup/cuda.sh first." >&2
+    exit 1
+fi
 command -v ncu
 ncu --version
 
