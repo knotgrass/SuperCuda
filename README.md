@@ -11,7 +11,7 @@ SuperCuda/
 ├── common/common.cuh     # CEIL_DIV, CUDA_CHECK, shared __device__ helpers
 ├── vector_add_cuda/      # kernel + launcher (takes torch::Tensor)
 ├── reduction_cuda/       # 5 sum-reduction techniques, one op each
-├── sgemm_cuda/           # SGEMM lessons (naive: kernel body TODO)
+├── gemm_cuda/            # GEMM lessons (naive: kernel body TODO)
 ├── torch-ext/
 │   ├── torch_binding.h   # declarations of all launchers
 │   ├── torch_binding.cpp # TORCH_LIBRARY registration of all ops
@@ -68,7 +68,7 @@ All commands run from the repo root, in the `cxx` env.
 | Build (release: `-O3 -lineinfo`) | `script/build.sh release` |
 | Build (debug: `-O0 -g -G`) | `script/build.sh debug` |
 | Test | `python -m pytest tests -q` |
-| Benchmark | `python benchmarks/bench_reduction.py`, `python benchmarks/bench_sgemm.py` |
+| Benchmark | `python benchmarks/bench_reduction.py`, `python benchmarks/bench_gemm.py` |
 | Memory errors | `script/sanitizer.sh memcheck python -m pytest tests/test_vector_add.py -q` |
 | One kernel, all metrics | `script/ncu.sh <kernel_regex> <report> python -m pytest tests/test_x.py -q` |
 | Timeline | `script/nsys.sh <report> python benchmarks/bench_reduction.py` |

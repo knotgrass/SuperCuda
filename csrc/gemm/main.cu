@@ -40,7 +40,7 @@ int main(int argc, char** argv) {
     CUDA_CHECK(cudaMemcpy(dB, hB, sizeof(float) * K * N, cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(dC, hC, sizeof(float) * M * N, cudaMemcpyHostToDevice));
 
-    CUDA_CHECK(launch_naive_sgemm(M, N, K, alpha, dA, dB, beta, dC));
+    CUDA_CHECK(launch_naive_gemm(M, N, K, alpha, dA, dB, beta, dC));
     CUDA_CHECK(cudaDeviceSynchronize());
 
     CUDA_CHECK(cudaMemcpy(hC, dC, sizeof(float) * M * N, cudaMemcpyDeviceToHost));

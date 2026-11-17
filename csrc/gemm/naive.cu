@@ -13,7 +13,7 @@
  *
  * @param[in, out] C overwritten with the result
  */
-__global__ void naive_sgemm(
+__global__ void naive_gemm(
     const int M, const int N, const int K,
     float alpha, const float *A, const float *B,
     float beta, float *C
@@ -47,7 +47,7 @@ __global__ void naive_sgemm(
 /**
  * @brief const int + device pointer + stream -> cudaError_t
  */
-cudaError_t launch_naive_sgemm(
+cudaError_t launch_naive_gemm(
     const int M, const int N, const int K,
     float alpha, const float *dA, const float *dB,
     float beta, float *dC, cudaStream_t stream) {
@@ -60,7 +60,7 @@ cudaError_t launch_naive_sgemm(
     dim3 block(BLOCK, BLOCK); // 1024 threads
     dim3 grid(CEIL_DIV(M, BLOCK), CEIL_DIV(N, BLOCK)); // x -> rows, y -> cols
 
-    naive_sgemm<<<grid, block, smem_size, stream>>>(M, N, K, alpha, dA, dB, beta, dC);
+    naive_gemm<<<grid, block, smem_size, stream>>>(M, N, K, alpha, dA, dB, beta, dC);
 
     return cudaGetLastError();
 }

@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 CUDA learning repo. Kernels are Torch ops in the Hugging Face kernel-builder layout.
-The owner writes the kernel bodies (SGEMM series next: naive, then Strassen, Winograd, tensor cores).
+The owner writes the kernel bodies (GEMM series next: naive, then Strassen, Winograd, tensor cores).
 Do not write a kernel body unless asked; write the launcher, test, and benchmark around it.
 
 ## Layout
