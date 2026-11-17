@@ -12,7 +12,7 @@
             // Fallback for files not in compile_commands.json (csrc/*).
             "includePath": [
                 "${workspaceFolder}/include",
-                "${workspaceFolder}/torch-ext",
+                "${workspaceFolder}/torch_ext",
                 "${workspaceFolder}/libs/cutlass/include",
                 "${condaEnvPrefix}/include",
                 "${condaEnvPrefix}/include/python3.13",

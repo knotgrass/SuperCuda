@@ -23,5 +23,5 @@ if [[ -n "${CUDA_HOME:-}" && "$CUDA_HOME" != "${CONDA_PREFIX:-}" ]]; then
     echo "warning: CUDA_HOME=$CUDA_HOME is not \$CONDA_PREFIX: torch builds with that nvcc (see script/setup/cuda.sh)." >&2
 fi
 
-SUPERCUDA_BUILD="$MODE" SUPERCUDA_VERBOSE=1 PYTHONPATH="$ROOT/torch-ext${PYTHONPATH:+:$PYTHONPATH}" \
+SUPERCUDA_BUILD="$MODE" SUPERCUDA_VERBOSE=1 PYTHONPATH="$ROOT/torch_ext${PYTHONPATH:+:$PYTHONPATH}" \
     python -c "import supercuda; print('supercuda ($MODE) ready:', supercuda.ops)"

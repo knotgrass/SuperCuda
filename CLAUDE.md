@@ -1,16 +1,18 @@
 # CLAUDE.md
 
 CUDA learning repo. Kernels are Torch ops in the Hugging Face kernel-builder layout.
+Exception: the extension directory is `torch_ext/` (the owner's choice). kernel-builder expects `torch-ext/`:
+rename the directory before a Hub build.
 The owner writes the kernel bodies (GEMM series next: naive, then Strassen, Winograd, tensor cores).
 Do not write a kernel body unless asked; write the launcher, test, and benchmark around it.
 
 ## Layout
 
-- `build.toml`: kernel-builder config (edition 6). It is the **only** source list: `torch-ext/supercuda/_ops.py` reads it.
+- `build.toml`: kernel-builder config (edition 6). It is the **only** source list: `torch_ext/supercuda/_ops.py` reads it.
 - `<name>_cuda/*.cu`: kernel + launcher. `common/common.cuh`: `CEIL_DIV`, `CUDA_CHECK`, shared `__device__` helpers.
-- `torch-ext/torch_binding.{h,cpp}`: launcher declarations and op registration. `registration_dev.h` stands in for the
+- `torch_ext/torch_binding.{h,cpp}`: launcher declarations and op registration. `registration_dev.h` stands in for the
   `registration.h` that kernel-builder generates.
-- `torch-ext/supercuda/`: `__init__.py` (one thin wrapper per op), `_ops.py` (dev JIT loader).
+- `torch_ext/supercuda/`: `__init__.py` (one thin wrapper per op), `_ops.py` (dev JIT loader).
 - `tests/`, `benchmarks/`: pytest vs. PyTorch; `triton.testing.do_bench`.
 - `csrc/`: old single-file programs with `main()`. Keep their logic unchanged.
 - `script/`: build/profile wrappers; `script/setup/`: env install scripts (the user runs these, not Claude).
@@ -33,15 +35,15 @@ Do not write a kernel body unless asked; write the launcher, test, and benchmark
 - Return early when `numel() == 0` (a grid of 0 blocks is an invalid launch).
 - Launch on `at::cuda::getCurrentCUDAStream()`; call `C10_CUDA_KERNEL_LAUNCH_CHECK();` after each launch.
 - Use `torch::zeros` for an output that the kernel reads or accumulates into (atomics, `beta * C`).
-- No `PYBIND11_MODULE`. Register ops only in `torch-ext/torch_binding.cpp`. Op namespace: `supercuda`.
+- No `PYBIND11_MODULE`. Register ops only in `torch_ext/torch_binding.cpp`. Op namespace: `supercuda`.
 
 ## Add a new kernel
 
 1. Create `<name>_cuda/<name>.cu` with kernel + launcher.
 2. Add the source to `build.toml` (a new `[kernel.<name>]` section, or the `src` list of an existing one).
-3. Declare the launcher in `torch-ext/torch_binding.h`.
-4. Register the op in `torch-ext/torch_binding.cpp` (`ops.def` schema + `ops.impl(..., torch::kCUDA, ...)`).
-5. Add a Python wrapper in `torch-ext/supercuda/__init__.py` and add it to `__all__`.
+3. Declare the launcher in `torch_ext/torch_binding.h`.
+4. Register the op in `torch_ext/torch_binding.cpp` (`ops.def` schema + `ops.impl(..., torch::kCUDA, ...)`).
+5. Add a Python wrapper in `torch_ext/supercuda/__init__.py` and add it to `__all__`.
 6. Add a test in `tests/` (PyTorch reference, sizes that are not multiples of the block size) and a benchmark in `benchmarks/`.
 
 Then run `script/build.sh release && python -m pytest tests -q`.

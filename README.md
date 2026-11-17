@@ -1,7 +1,8 @@
 # Parallel
 
 CUDA kernels for learning, called from Python as Torch ops (`torch.ops.supercuda.*`).
-The layout follows Hugging Face [kernel-builder](https://huggingface.co/docs/kernels/builder/writing-kernels).
+The layout follows Hugging Face [kernel-builder](https://huggingface.co/docs/kernels/builder/writing-kernels),
+except the extension directory: `torch_ext/` here, `torch-ext/` in kernel-builder.
 
 ## Layout
 
@@ -12,7 +13,7 @@ SuperCuda/
 ├── vector_add_cuda/      # kernel + launcher (takes torch::Tensor)
 ├── reduction_cuda/       # 5 sum-reduction techniques, one op each
 ├── gemm_cuda/            # GEMM lessons (naive: kernel body TODO)
-├── torch-ext/
+├── torch_ext/
 │   ├── torch_binding.h   # declarations of all launchers
 │   ├── torch_binding.cpp # TORCH_LIBRARY registration of all ops
 │   └── supercuda/        # Python package: __init__.py (wrappers), _ops.py (dev JIT loader)
@@ -28,7 +29,7 @@ How a Python call reaches a kernel:
 
 ```mermaid
 flowchart LR
-    T[build.toml] --> O["torch-ext/supercuda/_ops.py<br/>cpp_extension.load"]
+    T[build.toml] --> O["torch_ext/supercuda/_ops.py<br/>cpp_extension.load"]
     O --> S["build/release (or debug)/supercuda.so"]
     S --> R["torch_binding.cpp<br/>TORCH_LIBRARY"]
     R --> N[torch.ops.supercuda.*]
