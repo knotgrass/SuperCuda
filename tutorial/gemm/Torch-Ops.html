@@ -1,0 +1,1156 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Từ Kernel đến Torch Op</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a sticky step rail on the left, one reading column on the right.
+   Each step = heading, then code or diagram first, then short text. */
+:root {
+  --bg: #f3f5f7;
+  --surface: #ffffff;
+  --ink: #17212b;
+  --muted: #586675;
+  --line: #d3dae1;
+  --accent: #0a6f62;
+  --accent-soft: #dff0ec;
+  --warm: #a2500a;
+  --warm-soft: #fbecd9;
+  --code-bg: #e9edf1;
+  --code-ink: #1b2732;
+  --font-text: "Be Vietnam Pro", "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --radius: 8px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1418; --surface: #171e24; --ink: #e2e9ef; --muted: #96a5b2; --line: #2b353e;
+    --accent: #5ccfba; --accent-soft: #12312d; --warm: #f1b264; --warm-soft: #35270f;
+    --code-bg: #0a0f13; --code-ink: #d7dfe7; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1418; --surface: #171e24; --ink: #e2e9ef; --muted: #96a5b2; --line: #2b353e;
+  --accent: #5ccfba; --accent-soft: #12312d; --warm: #f1b264; --warm-soft: #35270f;
+  --code-bg: #0a0f13; --code-ink: #d7dfe7; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-text); font-size: 16px; line-height: 1.65;
+}
+.page {
+  max-width: 1120px; margin: 0 auto; padding-block: 32px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+a { color: var(--accent); }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code, pre, kbd { font-family: var(--font-mono); }
+code { font-size: 0.875em; background: var(--code-bg); color: var(--code-ink); padding: 0.1em 0.35em; border-radius: 4px; overflow-wrap: anywhere; }
+pre code { background: none; padding: 0; font-size: inherit; overflow-wrap: normal; }
+
+/* header */
+.top { display: grid; gap: 12px; padding-bottom: 28px; border-bottom: 1px solid var(--line); margin-bottom: 28px; }
+.eyebrow { font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+h1 { font-size: clamp(1.7rem, 4.5vw, 2.5rem); line-height: 1.2; margin: 0; font-weight: 700; text-wrap: balance; max-width: 22ch; }
+.lede { margin: 0; max-width: 64ch; color: var(--muted); font-size: 1.05rem; }
+.facts { display: flex; flex-wrap: wrap; gap: 6px 8px; margin: 4px 0 0; padding: 0; list-style: none; }
+.facts li { font-family: var(--font-mono); font-size: 0.75rem; border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; color: var(--muted); background: var(--surface); }
+
+/* layout */
+.layout { display: grid; grid-template-columns: 232px minmax(0, 1fr); gap: 40px; align-items: start; }
+.rail { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); font-size: 0.875rem; }
+.rail h2 { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+.rail ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+.rail a { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 4px; padding: 5px 8px; border-radius: 6px; color: var(--ink); text-decoration: none; line-height: 1.35; }
+.rail a:hover { background: var(--accent-soft); }
+.rail .n { font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted); padding-top: 2px; }
+.rail a.is-done .n { color: var(--accent); font-weight: 600; }
+.rail .group { margin: 12px 0 4px; padding: 0 8px; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+main { min-width: 0; display: grid; gap: 56px; }
+section { display: grid; gap: 16px; min-width: 0; scroll-margin-top: 16px; }
+section > * { margin: 0; min-width: 0; }
+h2 { font-size: 1.4rem; line-height: 1.3; font-weight: 700; text-wrap: balance; }
+h2 .num { font-family: var(--font-mono); font-size: 0.85rem; font-weight: 600; color: var(--accent); display: block; letter-spacing: 0.06em; margin-bottom: 2px; }
+h3 { font-size: 1rem; font-weight: 600; margin-top: 8px; }
+p, ul, ol.plain { max-width: 68ch; }
+ul, ol.plain { padding-left: 1.2em; display: grid; gap: 6px; }
+.phase { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; }
+
+/* code, commands, output */
+figure { margin: 0; min-width: 0; }
+figure.code { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--code-bg); }
+figure.code figcaption { font-family: var(--font-mono); font-size: 0.75rem; padding: 6px 12px; color: var(--muted); border-bottom: 1px solid var(--line); background: var(--surface); overflow-wrap: anywhere; }
+pre { margin: 0; padding: 12px 14px; overflow-x: auto; font-size: 0.8rem; line-height: 1.6; color: var(--code-ink); tab-size: 4; }
+pre .c { color: var(--muted); }
+pre .you { color: var(--warm); font-weight: 600; }
+.cmd { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: var(--radius); background: var(--code-bg); }
+.cmd pre { padding-right: 4px; }
+.copy { margin: 7px 8px 0 0; font: 500 0.72rem var(--font-text); padding: 3px 9px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; white-space: nowrap; }
+.copy:hover { border-color: var(--accent); color: var(--accent); }
+figure.out { border: 1px dashed var(--line); border-radius: var(--radius); }
+figure.out figcaption { font-size: 0.75rem; padding: 6px 12px 0; color: var(--muted); }
+figure.out pre { color: var(--muted); }
+
+/* tables */
+.tw { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.875rem; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+th { font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; background: var(--bg); white-space: nowrap; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--font-mono); font-size: 0.8rem; white-space: nowrap; }
+caption { caption-side: bottom; text-align: left; font-size: 0.78rem; color: var(--muted); padding: 8px 12px; border-top: 1px solid var(--line); }
+
+/* notes */
+.note { border-radius: var(--radius); padding: 12px 14px; background: var(--accent-soft); display: grid; gap: 6px; max-width: 72ch; }
+.note.warn { background: var(--warm-soft); }
+.note > * { margin: 0; }
+.note strong:first-child { color: var(--accent); }
+.note.warn strong:first-child { color: var(--warm); }
+
+/* layer diagram */
+.layers { list-style: none; margin: 0; padding: 0; display: grid; gap: 22px; }
+.layer { position: relative; display: grid; grid-template-columns: 118px minmax(0, 1fr) auto; gap: 4px 14px; align-items: center; padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.layer + .layer::before { content: "↓"; position: absolute; top: -22px; left: 30px; line-height: 22px; color: var(--muted); font-size: 0.95rem; }
+.layer .tag { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; color: var(--muted); }
+.layer .sym { font-family: var(--font-mono); font-size: 0.82rem; overflow-wrap: anywhere; }
+.layer .file { font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); overflow-wrap: anywhere; }
+.layer.gpu { background: var(--accent-soft); border-color: var(--accent); }
+.layer.gpu .tag { color: var(--accent); }
+.flow { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 6px; align-items: center; font-family: var(--font-mono); font-size: 0.78rem; }
+.flow li { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 4px 9px; }
+.flow li.arrow { border: 0; background: none; padding: 0; color: var(--muted); }
+.flow li.end { border-color: var(--accent); background: var(--accent-soft); }
+
+/* kernel picker */
+.picker { display: grid; gap: 8px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.picker label { font-weight: 600; }
+.picker .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.picker input { font: 500 0.95rem var(--font-mono); padding: 7px 10px; width: 14rem; max-width: 100%; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); }
+.picker .presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.picker .presets button { font: 500 0.78rem var(--font-mono); padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+.picker .presets button:hover { border-color: var(--accent); color: var(--accent); }
+.hint { font-size: 0.85rem; color: var(--muted); margin: 0; }
+.hint.err { color: var(--warm); }
+
+/* loop */
+.loop { list-style: none; margin: 0; padding: 0; counter-reset: loop; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.loop li { counter-increment: loop; border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius); padding: 10px 12px; display: grid; gap: 2px; align-content: start; }
+.loop li::before { content: counter(loop); font-family: var(--font-mono); font-size: 0.75rem; font-weight: 600; color: var(--accent); }
+.loop strong { font-size: 0.95rem; }
+.loop span { font-size: 0.8rem; color: var(--muted); }
+.loop li.back { background: var(--accent-soft); border-color: var(--accent); }
+
+.done { display: inline-flex; gap: 8px; align-items: center; font-size: 0.85rem; color: var(--muted); cursor: pointer; width: fit-content; }
+.done input { width: 16px; height: 16px; accent-color: var(--accent); }
+
+/* step 2: the detailed guide sits in one dropdown */
+details.guide { border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: var(--radius); background: var(--surface); min-width: 0; }
+details.guide > summary { position: relative; list-style: none; cursor: pointer; padding: 12px 14px 12px 36px; }
+details.guide > summary::-webkit-details-marker { display: none; }
+details.guide > summary::before { content: "▸"; position: absolute; left: 14px; top: 12px; color: var(--accent); transition: transform 0.15s; }
+details.guide[open] > summary::before { transform: rotate(90deg); }
+details.guide[open] > summary { border-bottom: 1px solid var(--line); }
+details.guide > summary:hover .sum-title { color: var(--accent); }
+summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sum-title { display: block; font-weight: 600; }
+.sum-sub { display: block; font-size: 0.85rem; color: var(--muted); }
+.guide-body { display: grid; gap: 16px; padding: 16px 14px 20px; min-width: 0; }
+.guide-body > * { margin: 0; min-width: 0; }
+.guide-body h3 { margin-top: 8px; padding-top: 18px; border-top: 1px solid var(--line); scroll-margin-top: 16px; }
+.guide-body h3 .sn { display: inline-block; min-width: 2.8em; font-family: var(--font-mono); font-size: 0.82rem; font-weight: 600; color: var(--accent); }
+.guide-body h4 { font-size: 0.92rem; font-weight: 600; }
+details.answer { border: 1px dashed var(--accent); border-radius: var(--radius); min-width: 0; overflow: hidden; }
+details.answer > summary { cursor: pointer; padding: 8px 12px; font-weight: 600; font-size: 0.9rem; color: var(--accent); }
+details.answer[open] > summary { border-bottom: 1px dashed var(--line); }
+details.answer > figure.code { border: 0; border-radius: 0; }
+@media (prefers-reduced-motion: reduce) { details.guide > summary::before { transition: none; } }
+
+@media (max-width: 860px) {
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  .rail { position: static; }
+  .rail ol { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .rail .group { grid-column: 1 / -1; }
+  .layer { grid-template-columns: minmax(0, 1fr); }
+  .loop { grid-template-columns: minmax(0, 1fr); }
+  main { gap: 44px; }
+}
+</style>
+
+<div class="page">
+  <header class="top">
+    <div class="eyebrow">SuperCuda · extension gemm</div>
+    <h1>Từ một CUDA kernel đến Torch op</h1>
+    <p class="lede">Trang này đi theo kernel <code>naive_gemm</code> qua 12 bước: viết launcher, đăng ký Torch op, build, test, benchmark, rồi profile. Mọi số đo trên trang là kết quả chạy thật ngày 16/11/2026 trên máy của bạn. Lúc đo, kernel còn tên <code>naive_sgemm</code> và thư mục extension còn tên <code>torch-ext/</code>. Trang này dùng tên mới, <code>naive_gemm</code> (commit <code>250f352</code>) và <code>torch_ext/</code>, kể cả trong output.</p>
+    <ul class="facts">
+      <li>RTX 5060 Ti</li><li>torch 2.15.0+cu134</li><li>nvcc 13.4</li><li>triton 3.9.0</li><li>nsys 2026.5.2</li><li>ncu 2026.3.1</li><li>build release</li>
+    </ul>
+  </header>
+
+  <div class="layout">
+    <nav class="rail" aria-label="Các bước">
+      <h2>Các bước</h2>
+      <ol>
+        <li><a href="#tong-quan"><span class="n">·</span><span>Đường đi của một lời gọi</span></a></li>
+        <li class="group">Từ kernel đến Python</li>
+        <li><a href="#buoc-1" data-step="1"><span class="n">1</span><span>Kernel và launcher</span></a></li>
+        <li><a href="#buoc-2" data-step="2"><span class="n">2</span><span>Torch op</span></a></li>
+        <li><a href="#buoc-3" data-step="3"><span class="n">3</span><span>Khai báo và đăng ký op</span></a></li>
+        <li><a href="#buoc-4" data-step="4"><span class="n">4</span><span>build.toml</span></a></li>
+        <li><a href="#buoc-5" data-step="5"><span class="n">5</span><span>Wrapper Python</span></a></li>
+        <li><a href="#buoc-6" data-step="6"><span class="n">6</span><span>Build ra gemm.so</span></a></li>
+        <li><a href="#buoc-7" data-step="7"><span class="n">7</span><span>Gọi từ Python</span></a></li>
+        <li class="group">Đúng trước, nhanh sau</li>
+        <li><a href="#buoc-8" data-step="8"><span class="n">8</span><span>Một test pytest</span></a></li>
+        <li><a href="#buoc-9" data-step="9"><span class="n">9</span><span>Benchmark</span></a></li>
+        <li class="group">Tìm chỗ chậm</li>
+        <li><a href="#buoc-10" data-step="10"><span class="n">10</span><span>Timeline: torch.profiler, nsys</span></a></li>
+        <li><a href="#buoc-11" data-step="11"><span class="n">11</span><span>Bên trong kernel: ncu</span></a></li>
+        <li><a href="#buoc-12" data-step="12"><span class="n">12</span><span>Vòng lặp tối ưu</span></a></li>
+        <li><a href="#bang-lenh"><span class="n">·</span><span>Bảng lệnh</span></a></li>
+      </ol>
+    </nav>
+
+    <main>
+      <section id="tong-quan">
+        <h2>Đường đi của một lời gọi</h2>
+        <ol class="layers" aria-label="Năm tầng từ Python xuống GPU">
+          <li class="layer"><span class="tag">Wrapper Python</span><span class="sym">gemm.<span data-k>naive</span>(A, B, C, alpha, beta)</span><span class="file">torch_ext/gemm/__init__.py</span></li>
+          <li class="layer"><span class="tag">Op đã đăng ký</span><span class="sym">torch.ops.gemm.<span data-k>naive</span></span><span class="file">torch_ext/torch_binding.cpp</span></li>
+          <li class="layer"><span class="tag">Torch op (C++)</span><span class="sym"><span data-k>naive</span>_cuda → run_gemm</span><span class="file">torch_ext/ops.cu</span></li>
+          <li class="layer"><span class="tag">Launcher</span><span class="sym">launch_<span data-k>naive</span>_gemm(M, N, K, …, stream)</span><span class="file">csrc/gemm/<span data-k>naive</span>.cu</span></li>
+          <li class="layer gpu"><span class="tag">Kernel (GPU)</span><span class="sym"><span data-k>naive</span>_gemm</span><span class="file">csrc/gemm/<span data-k>naive</span>.cu</span></li>
+        </ol>
+        <p>Mỗi tầng chỉ gọi tầng ngay dưới nó. Bạn viết kernel. Bốn tầng phía trên đổi tensor của PyTorch thành con trỏ device và một stream.</p>
+        <ul class="flow" aria-label="Đường build">
+          <li>build.toml</li><li class="arrow">→</li>
+          <li>gemm/_ops.py</li><li class="arrow">→</li>
+          <li>ninja + nvcc</li><li class="arrow">→</li>
+          <li class="end">build/release/gemm.so</li><li class="arrow">→</li>
+          <li>torch.ops.gemm</li>
+        </ul>
+        <p>Lúc build, mọi file nguồn trong <code>build.toml</code> thành một thư viện duy nhất: <code>gemm.so</code>. Thư viện này chứa kernel, launcher, Torch op và phần đăng ký op.</p>
+
+        <div class="picker">
+          <label for="kernel-name">Bạn đang thêm kernel nào?</label>
+          <div class="row">
+            <input id="kernel-name" type="text" value="naive" spellcheck="false" autocomplete="off" autocapitalize="off" aria-describedby="kernel-msg">
+            <div class="presets" aria-label="Tên gợi ý">
+              <button type="button" data-preset="naive">naive</button>
+              <button type="button" data-preset="coalescing">coalescing</button>
+              <button type="button" data-preset="tiled">tiled</button>
+            </div>
+          </div>
+          <p class="hint" id="kernel-msg">Với <code>naive</code>, các đoạn mã ở bước 1 đến 8 khớp với mã trong repo. Nhập tên khác để thấy đúng các dòng bạn cần thêm cho kernel mới.</p>
+        </div>
+      </section>
+
+      <div class="phase">Từ kernel đến Python</div>
+
+      <section id="buoc-1">
+        <h2><span class="num">BƯỚC 1</span>Viết kernel và launcher</h2>
+        <figure class="code">
+          <figcaption>csrc/gemm/<span data-k>naive</span>.cuh</figcaption>
+<pre><code>#pragma once
+#include &lt;cuda_runtime.h&gt;
+
+cudaError_t launch_<span data-k>naive</span>_gemm(
+    int M, int N, int K,
+    float alpha, const float *dA, const float *dB,
+    float beta, float *dC, cudaStream_t stream = nullptr);</code></pre>
+        </figure>
+        <figure class="code">
+          <figcaption>csrc/gemm/<span data-k>naive</span>.cu</figcaption>
+<pre><code>#include "common.cuh"          <span class="c">// CEIL_DIV, CUDA_CHECK</span>
+#include "<span data-k>naive</span>.cuh"
+
+__global__ void <span data-k>naive</span>_gemm(
+    const int M, const int N, const int K,
+    float alpha, const float *A, const float *B,
+    float beta, float *C
+) {
+    <span class="you">// Phần thân kernel: bạn viết.</span>
+    <span class="c">// C = alpha * A @ B + beta * C, row-major. A: M x K, B: K x N, C: M x N.</span>
+}
+
+cudaError_t launch_<span data-k>naive</span>_gemm(
+    const int M, const int N, const int K,
+    float alpha, const float *dA, const float *dB,
+    float beta, float *dC, cudaStream_t stream) {
+
+    if (M == 0 || N == 0)
+        return cudaSuccess;                 <span class="c">// grid 0 block là một launch không hợp lệ</span>
+
+    constexpr int BLOCK = 32;               <span class="c">// grid và block: tuỳ kernel</span>
+    dim3 block(BLOCK, BLOCK);
+    dim3 grid(CEIL_DIV(M, BLOCK), CEIL_DIV(N, BLOCK));
+
+    <span data-k>naive</span>_gemm&lt;&lt;&lt;grid, block, 0, stream&gt;&gt;&gt;(M, N, K, alpha, dA, dB, beta, dC);
+
+    return cudaGetLastError();
+}</code></pre>
+        </figure>
+        <p>Launcher là hàm host gọi kernel. Launcher nhận con trỏ device và một stream, tính grid và block, gọi kernel, rồi trả <code>cudaGetLastError()</code>.</p>
+        <ul>
+          <li>Launcher không cấp phát bộ nhớ, không copy về host và không synchronize.</li>
+          <li>Launcher không include header của Torch. Nhờ vậy <code>main.cu</code> và Torch op dùng chung một file kernel.</li>
+          <li>Mọi launcher có cùng chữ ký với <code>naive.cuh</code>. Bước 2 dựa vào điều này.</li>
+        </ul>
+        <h3>Chạy thử kernel không cần Torch</h3>
+        <div class="cmd"><pre><code>script/compile_n_run.sh csrc/gemm</code></pre><button type="button" class="copy">Chép</button></div>
+        <figure class="out"><figcaption>Output</figcaption>
+<pre><code>sources: csrc/gemm/main.cu csrc/gemm/naive.cu
+compile successful: csrc/bin/gemm.out
+start run program</code></pre>
+        </figure>
+        <p>Lệnh này compile mọi file <code>*.cu</code> trong <code>csrc/gemm/</code>. <code>main.cu</code> hiện gọi <code>launch_naive_gemm</code>. Để chạy thử một kernel mới bằng chương trình này, đổi lời gọi đó trong <code>main.cu</code>.</p>
+        <label class="done"><input type="checkbox" id="done-1" data-done="1"> Xong bước 1</label>
+      </section>
+
+      <section id="buoc-2">
+        <h2><span class="num">BƯỚC 2</span>Viết Torch op</h2>
+        <figure class="code">
+          <figcaption>torch_ext/ops.cu</figcaption>
+<pre><code>#include "../csrc/gemm/<span data-k>naive</span>.cuh"   <span class="c">// đầu file, cạnh các header khác</span>
+
+<span class="c">// cuối file: một op cho một kernel</span>
+torch::Tensor <span data-k>naive</span>_cuda(const torch::Tensor&amp; A, const torch::Tensor&amp; B, const torch::Tensor&amp; C,
+                         double alpha, double beta) {
+    return run_gemm("<span data-k>naive</span>", launch_<span data-k>naive</span>_gemm, A, B, C, alpha, beta);
+}</code></pre>
+        </figure>
+        <p>Op của một kernel chỉ có một dòng. Hàm <code>run_gemm</code> trong cùng file làm phần việc chung của mọi kernel:</p>
+        <div class="tw"><table>
+          <thead><tr><th>Việc</th><th>Mã trong run_gemm</th><th>Bước nhỏ</th></tr></thead>
+          <tbody>
+            <tr><td>Kiểm tra input: tensor CUDA, cùng device, float32, contiguous, đúng shape</td><td><code>TORCH_CHECK(…)</code></td><td><a href="#b2-5">2.5</a></td></tr>
+            <tr><td>Chọn device của A cho mọi lời gọi CUDA phía sau</td><td><code>c10::cuda::CUDAGuard guard(A.device())</code></td><td><a href="#b2-6">2.6</a></td></tr>
+            <tr><td>Tạo tensor output từ C</td><td><code>torch::Tensor out = C.clone()</code></td><td><a href="#b2-7">2.7</a></td></tr>
+            <tr><td>Trả về sớm khi output rỗng</td><td><code>if (out.numel() == 0) return out</code></td><td><a href="#b2-8">2.8</a></td></tr>
+            <tr><td>Lấy con trỏ device</td><td><code>A.data_ptr&lt;float&gt;()</code></td><td><a href="#b2-9">2.9</a></td></tr>
+            <tr><td>Lấy stream mà PyTorch đang dùng</td><td><code>at::cuda::getCurrentCUDAStream()</code></td><td><a href="#b2-9">2.9</a></td></tr>
+            <tr><td>Đổi lỗi launch thành <code>RuntimeError</code> của Python</td><td><code>C10_CUDA_CHECK(launch(…))</code></td><td><a href="#b2-9">2.9</a></td></tr>
+          </tbody>
+        </table></div>
+        <p>Op clone C vì kernel đọc <code>beta * C</code> rồi ghi đè lên chính vùng nhớ đó. Op trả một tensor mới và giữ nguyên C của người gọi.</p>
+
+        <details class="guide" id="b2-guide">
+          <summary><span class="sum-title">Hướng dẫn chi tiết: viết ops.cu trong 11 bước nhỏ</span><span class="sum-sub">Khung của file, mã và lý do của từng đoạn, lệnh compile thử, đáp án</span></summary>
+          <div class="guide-body">
+            <ul>
+              <li>File nằm ở <code>torch_ext/ops.cu</code>. <code>build.toml</code> (bước 4) và <code>script/build.sh</code> (bước 6) dùng đường dẫn này. Layout chuẩn của kernel-builder đặt tên thư mục này là <code>torch-ext/</code>. Nếu sau này build cho Hugging Face Hub bằng kernel-builder, đổi tên thư mục về <code>torch-ext/</code>.</li>
+              <li>Bước 2.2 đến 2.9 viết phần dùng chung, một lần cho mọi kernel. Từ kernel thứ hai, bạn chỉ cần bước 2.1 (một dòng include) và bước 2.10 (một op).</li>
+              <li>Mã của 11 bước, ghép lại, compile không lỗi và không cảnh báo với nvcc 13.4 và torch 2.15.0 (ngày 17/11/2026). Bản ghép nằm ở cuối mục này.</li>
+            </ul>
+            <figure class="code">
+              <figcaption>Khung của torch_ext/ops.cu. Bấm vào một số để tới bước đó.</figcaption>
+<pre><code>#include …                                    <span class="c">// <a href="#b2-1">2.1</a></span>
+
+namespace {                                   <span class="c">// <a href="#b2-2">2.2</a></span>
+using GemmLauncher = …;                       <span class="c">// <a href="#b2-3">2.3</a></span>
+
+torch::Tensor run_gemm(op, launch, A, B, C, alpha, beta) {  <span class="c">// <a href="#b2-4">2.4</a></span>
+    <span class="c">// <a href="#b2-5">2.5</a>  TORCH_CHECK(…)        input sai → RuntimeError</span>
+    <span class="c">// <a href="#b2-6">2.6</a>  CUDAGuard             chọn GPU của A</span>
+    <span class="c">// <a href="#b2-7">2.7</a>  out = C.clone()       C của người gọi giữ nguyên</span>
+    <span class="c">// <a href="#b2-8">2.8</a>  out rỗng → return out</span>
+    <span class="c">// <a href="#b2-9">2.9</a>  C10_CUDA_CHECK(launch(…, stream)); return out;</span>
+}
+
+}  <span class="c">// namespace</span>
+
+torch::Tensor <span data-k>naive</span>_cuda(…)                   <span class="c">// <a href="#b2-10">2.10</a>: một dòng, gọi run_gemm</span></code></pre>
+            </figure>
+
+            <h3 id="b2-1"><span class="sn">2.1</span>Include các header</h3>
+            <figure class="code">
+              <figcaption>Đầu file</figcaption>
+<pre><code>#include "../csrc/gemm/<span data-k>naive</span>.cuh"           <span class="c">// launch_<span data-k>naive</span>_gemm</span>
+
+#include &lt;torch/all.h&gt;                      <span class="c">// torch::Tensor, TORCH_CHECK</span>
+#include &lt;ATen/cuda/CUDAContext.h&gt;          <span class="c">// at::cuda::getCurrentCUDAStream</span>
+#include &lt;c10/cuda/CUDAGuard.h&gt;             <span class="c">// c10::cuda::CUDAGuard</span>
+#include &lt;c10/cuda/CUDAException.h&gt;         <span class="c">// C10_CUDA_CHECK</span>
+
+#include &lt;limits&gt;                           <span class="c">// std::numeric_limits</span></code></pre>
+            </figure>
+            <ul>
+              <li>Đường dẫn <code>../csrc/gemm/</code> tính từ thư mục chứa <code>ops.cu</code>, nên dòng đầu không cần cờ <code>-I</code> nào.</li>
+              <li>Mỗi kernel mới thêm một dòng include cho header của kernel đó.</li>
+              <li><code>&lt;limits&gt;</code> cho bước 2.5c dùng <code>std::numeric_limits&lt;int&gt;::max()</code>.</li>
+            </ul>
+
+            <h3 id="b2-2"><span class="sn">2.2</span>Mở một <code>namespace {}</code> không tên</h3>
+            <figure class="code">
+              <figcaption>Sau các dòng include</figcaption>
+<pre><code>namespace {
+
+<span class="you">// 2.3 và 2.4 nằm ở đây</span>
+
+}  <span class="c">// namespace</span></code></pre>
+            </figure>
+            <ul>
+              <li>Chỉ code trong <code>ops.cu</code> thấy các tên trong namespace này. Vì vậy, nếu một file <code>.cu</code> khác cũng có hàm <code>run_gemm</code>, linker không báo trùng tên.</li>
+              <li>Đặt <code><span data-k>naive</span>_cuda</code> ở <strong>ngoài</strong> namespace này. Lý do: <code>torch_binding.cpp</code> (bước 3) gọi hàm đó từ một file khác.</li>
+            </ul>
+
+            <h3 id="b2-3"><span class="sn">2.3</span>Khai báo kiểu của launcher</h3>
+            <figure class="code">
+              <figcaption>Trong namespace</figcaption>
+<pre><code><span class="c">// Every launcher in csrc/gemm/ has this signature (see naive.cuh).</span>
+using GemmLauncher = cudaError_t (*)(int M, int N, int K,
+                                     float alpha, const float* dA, const float* dB,
+                                     float beta, float* dC, cudaStream_t stream);</code></pre>
+            </figure>
+            <ul>
+              <li><code>GemmLauncher</code> là kiểu con trỏ hàm (function pointer). <code>run_gemm</code> nhận launcher qua một tham số kiểu này. Nhờ vậy, mọi kernel dùng chung một hàm <code>run_gemm</code>.</li>
+              <li>Chép đúng thứ tự và kiểu của 9 tham số trong <code>csrc/gemm/naive.cuh</code>.</li>
+              <li>Giá trị mặc định <code>stream = nullptr</code> không thuộc kiểu hàm. Khi gọi qua con trỏ, bạn phải truyền đủ 9 tham số.</li>
+            </ul>
+
+            <h3 id="b2-4"><span class="sn">2.4</span>Viết chữ ký của <code>run_gemm</code></h3>
+            <figure class="code">
+              <figcaption>Trong namespace, sau GemmLauncher</figcaption>
+<pre><code><span class="c">// Shared part of every op: check the tensors, pick the device and the stream,</span>
+<span class="c">// and hand device pointers to `launch`. Returns a new tensor; C stays unchanged.</span>
+torch::Tensor run_gemm(const char* op, GemmLauncher launch,
+                       const torch::Tensor&amp; A, const torch::Tensor&amp; B, const torch::Tensor&amp; C,
+                       double alpha, double beta) {
+    <span class="you">// 2.5 → 2.9</span>
+}</code></pre>
+            </figure>
+            <div class="tw"><table>
+              <thead><tr><th>Tham số</th><th>Lý do</th></tr></thead>
+              <tbody>
+                <tr><td><code>op</code></td><td>Tên op để đưa vào thông báo lỗi: <code>gemm.<span data-k>naive</span>: …</code></td></tr>
+                <tr><td><code>launch</code></td><td>Launcher của kernel (bước 2.3)</td></tr>
+                <tr><td><code>const torch::Tensor&amp;</code></td><td>Hàm không copy đối tượng <code>Tensor</code>, nên reference count không tăng</td></tr>
+                <tr><td><code>double alpha, beta</code></td><td>Schema ở bước 3 ghi <code>float</code>. Kiểu <code>float</code> trong schema của Torch là <code>double</code> trong C++</td></tr>
+              </tbody>
+            </table></div>
+
+            <h3 id="b2-5"><span class="sn">2.5</span>Kiểm tra input bằng <code>TORCH_CHECK</code></h3>
+            <p><code>TORCH_CHECK(điều_kiện, phần_1, phần_2, …)</code> ném <code>c10::Error</code> khi điều kiện sai. Python nhận lỗi này dưới dạng <code>RuntimeError</code>. Macro chỉ ghép các phần thành thông báo khi điều kiện sai, nên input đúng không tốn công tạo chuỗi. Viết các dòng dưới đây theo đúng thứ tự a, b, c.</p>
+            <h4>a. Device</h4>
+            <figure class="code">
+              <figcaption>Đầu thân run_gemm</figcaption>
+<pre><code>    TORCH_CHECK(A.is_cuda() &amp;&amp; B.is_cuda() &amp;&amp; C.is_cuda(),
+                "gemm.", op, ": A, B, C must be CUDA tensors");
+    TORCH_CHECK(A.device() == B.device() &amp;&amp; A.device() == C.device(),
+                "gemm.", op, ": A, B, C must be on the same device");</code></pre>
+            </figure>
+            <p>Kernel cần con trỏ device, còn tensor CPU chỉ cho con trỏ host. Một kernel chạy trên một GPU, nên A, B, C phải nằm trên cùng GPU đó.</p>
+            <h4>b. Kiểu dữ liệu, cách xếp trong bộ nhớ, số chiều</h4>
+            <figure class="code">
+<pre><code>    TORCH_CHECK(A.scalar_type() == torch::kFloat32 &amp;&amp; B.scalar_type() == torch::kFloat32 &amp;&amp;
+                    C.scalar_type() == torch::kFloat32,
+                "gemm.", op, ": A, B, C must be float32");
+    TORCH_CHECK(A.is_contiguous() &amp;&amp; B.is_contiguous() &amp;&amp; C.is_contiguous(),
+                "gemm.", op, ": A, B, C must be contiguous (row-major)");
+    TORCH_CHECK(A.dim() == 2 &amp;&amp; B.dim() == 2 &amp;&amp; C.dim() == 2,
+                "gemm.", op, ": A, B, C must be 2-D");</code></pre>
+            </figure>
+            <ul>
+              <li>Kiểm tra contiguous là quan trọng nhất. Kernel tính địa chỉ bằng <code>A[row * K + k]</code>. Công thức này chỉ đúng khi các hàng nằm liền nhau trong bộ nhớ (row-major).</li>
+              <li>Ví dụ, <code>A.t()</code> trả một tensor không contiguous. Nếu thiếu kiểm tra này, kernel trả kết quả sai mà không báo lỗi gì.</li>
+              <li>Nếu thiếu kiểm tra float32, <code>data_ptr&lt;float&gt;()</code> ở bước 2.9 vẫn báo lỗi. Tuy vậy, thông báo đó không có tên op.</li>
+              <li>Đặt kiểm tra số chiều trước bước 2.5c, vì 2.5c đọc <code>size(0)</code> và <code>size(1)</code>.</li>
+            </ul>
+            <h4>c. Shape và giới hạn của <code>int</code></h4>
+            <figure class="code">
+<pre><code>    const int64_t M = A.size(0), K = A.size(1), N = B.size(1);
+    TORCH_CHECK(B.size(0) == K,
+                "gemm.", op, ": A is ", M, "x", K, " but B is ", B.size(0), "x", N);
+    TORCH_CHECK(C.size(0) == M &amp;&amp; C.size(1) == N,
+                "gemm.", op, ": C must be ", M, "x", N, ", got ", C.size(0), "x", C.size(1));
+    constexpr int64_t kIntMax = std::numeric_limits&lt;int&gt;::max();
+    TORCH_CHECK(M &lt;= kIntMax &amp;&amp; N &lt;= kIntMax &amp;&amp; K &lt;= kIntMax,
+                "gemm.", op, ": M, N, K must fit in int");</code></pre>
+            </figure>
+            <ul>
+              <li>Kernel không tự kiểm tra M, N, K. Nếu B có ít hơn K hàng, kernel đọc ra ngoài vùng nhớ của B.</li>
+              <li><code>size()</code> trả <code>int64_t</code>, còn launcher nhận <code>int</code>. Phép ép sang <code>int</code> làm đổi giá trị của mọi số lớn hơn 2³¹ − 1, và không báo lỗi.</li>
+            </ul>
+
+            <h3 id="b2-6"><span class="sn">2.6</span>Chọn GPU của A bằng <code>CUDAGuard</code></h3>
+            <figure class="code">
+              <figcaption>Sau các kiểm tra</figcaption>
+<pre><code>    <span class="c">// From here on, CUDA calls go to A's device and to the current stream there.</span>
+    const c10::cuda::CUDAGuard guard(A.device());</code></pre>
+            </figure>
+            <ul>
+              <li><code>CUDAGuard</code> đặt GPU của A làm device hiện tại. Khi <code>run_gemm</code> return, destructor của <code>guard</code> đặt lại device cũ. Kiểu thiết kế này gọi là RAII: constructor đổi trạng thái, destructor khôi phục trạng thái.</li>
+              <li>Với op bạn tự viết, Torch không tự chọn device. Ví dụ: A nằm trên <code>cuda:1</code>, còn device hiện tại là <code>cuda:0</code>. Nếu thiếu guard, kernel chạy trên <code>cuda:0</code> với con trỏ của <code>cuda:1</code>.</li>
+              <li>Đặt guard trước bước 2.9, vì <code>getCurrentCUDAStream()</code> trả stream của device hiện tại.</li>
+            </ul>
+
+            <h3 id="b2-7"><span class="sn">2.7</span>Tạo output bằng cách clone C</h3>
+            <figure class="code">
+<pre><code>    torch::Tensor out = C.clone();     <span class="c">// the kernel reads beta * C and overwrites it</span></code></pre>
+            </figure>
+            <ul>
+              <li>Kernel đọc <code>beta * C</code>, rồi ghi kết quả đè lên chính vùng nhớ đó. Op đưa cho kernel bản sao <code>out</code>, nên C của người gọi giữ nguyên.</li>
+              <li>Schema ở bước 3 khai báo C là input chỉ đọc: <code>Tensor C</code>, không phải <code>Tensor(a!) C</code>. Autograd và <code>torch.compile</code> dựa vào khai báo này để biết op có sửa input hay không.</li>
+              <li>Không dùng <code>torch::empty</code> hay <code>torch::zeros</code> ở đây. Kernel cần giá trị của C để tính <code>beta * C</code>.</li>
+              <li>C đã contiguous (bước 2.5b), nên <code>out</code> cũng contiguous.</li>
+            </ul>
+
+            <h3 id="b2-8"><span class="sn">2.8</span>Trả về sớm khi output rỗng</h3>
+            <figure class="code">
+<pre><code>    if (out.numel() == 0) return out;  <span class="c">// a grid of 0 blocks is an invalid launch</span></code></pre>
+            </figure>
+            <ul>
+              <li>Khi M = 0 hoặc N = 0, grid có 0 block. CUDA từ chối lần launch đó với lỗi <code>invalid configuration argument</code>.</li>
+              <li>Launcher ở bước 1 đã tự kiểm tra trường hợp này (<code>if (M == 0 || N == 0)</code>). Một launcher mới có thể quên, nên kiểm tra trong <code>run_gemm</code> bảo vệ mọi kernel.</li>
+              <li>Khi K = 0, không cần trả về sớm. Vòng lặp <code>k</code> chạy 0 lần, kernel ghi <code>beta * C</code>, và đó là kết quả đúng.</li>
+            </ul>
+
+            <h3 id="b2-9"><span class="sn">2.9</span>Gọi launcher và kiểm tra lỗi</h3>
+            <figure class="code">
+<pre><code>    <span class="c">// The launcher returns cudaGetLastError().</span>
+    <span class="c">// C10_CUDA_CHECK turns an error into a Python exception.</span>
+    C10_CUDA_CHECK(launch(
+        static_cast&lt;int&gt;(M), static_cast&lt;int&gt;(N), static_cast&lt;int&gt;(K),
+        static_cast&lt;float&gt;(alpha), A.data_ptr&lt;float&gt;(), B.data_ptr&lt;float&gt;(),
+        static_cast&lt;float&gt;(beta), out.data_ptr&lt;float&gt;(),
+        at::cuda::getCurrentCUDAStream()));
+    return out;</code></pre>
+            </figure>
+            <div class="tw"><table>
+              <thead><tr><th>Tham số của launcher</th><th>Giá trị</th><th>Ghi chú</th></tr></thead>
+              <tbody>
+                <tr><td><code>M, N, K</code></td><td><code>static_cast&lt;int&gt;(…)</code></td><td>An toàn nhờ kiểm tra ở bước 2.5c</td></tr>
+                <tr><td><code>alpha, beta</code></td><td><code>static_cast&lt;float&gt;(…)</code></td><td>Kernel tính bằng float32</td></tr>
+                <tr><td><code>dA, dB</code></td><td><code>A.data_ptr&lt;float&gt;()</code>, <code>B.data_ptr&lt;float&gt;()</code></td><td>Con trỏ vào bộ nhớ GPU</td></tr>
+                <tr><td><code>dC</code></td><td><code>out.data_ptr&lt;float&gt;()</code></td><td>Kernel ghi vào <code>out</code>, không ghi vào C</td></tr>
+                <tr><td><code>stream</code></td><td><code>at::cuda::getCurrentCUDAStream()</code></td><td>Stream mà PyTorch đang dùng trên GPU của A</td></tr>
+              </tbody>
+            </table></div>
+            <ul>
+              <li><strong>Stream:</strong> PyTorch xếp mọi việc trên GPU vào stream hiện tại. Kernel chạy trên cùng stream đó, nên kernel chỉ bắt đầu sau khi <code>clone()</code> xong.</li>
+              <li>Nếu bạn truyền <code>nullptr</code>, tức stream mặc định của <code>naive.cuh</code>, vấn đề xuất hiện trong khối <code>with torch.cuda.stream(s):</code>. Khi đó kernel và <code>clone()</code> chạy trên hai stream khác nhau. Kernel có thể đọc <code>out</code> trước khi <code>clone()</code> ghi xong.</li>
+              <li><strong><code>C10_CUDA_CHECK</code>:</strong> launcher trả về <code>cudaGetLastError()</code>. Nếu giá trị đó khác <code>cudaSuccess</code>, macro ném exception. Python nhận <code>torch.AcceleratorError</code>, một lớp con của <code>RuntimeError</code>.</li>
+              <li>Không dùng <code>C10_CUDA_KERNEL_LAUNCH_CHECK()</code> ở đây. Macro đó gọi <code>cudaGetLastError()</code> lần thứ hai, nhưng launcher đã đọc và xoá lỗi launch từ lần gọi đầu.</li>
+              <li>Op không synchronize, nên <code>C10_CUDA_CHECK</code> chỉ bắt lỗi lúc launch, ví dụ cấu hình grid hoặc block sai. Lỗi xảy ra trong lúc kernel chạy, ví dụ đọc ngoài vùng nhớ, chỉ hiện ở lần synchronize sau. Bước 8 dùng memcheck để tìm loại lỗi này.</li>
+            </ul>
+
+            <h3 id="b2-10"><span class="sn">2.10</span>Viết op <code><span data-k>naive</span>_cuda</code></h3>
+            <figure class="code">
+              <figcaption>Cuối file</figcaption>
+<pre><code><span class="c">// gemm.<span data-k>naive</span>: kernel in csrc/gemm/<span data-k>naive</span>.cu.</span>
+torch::Tensor <span data-k>naive</span>_cuda(const torch::Tensor&amp; A, const torch::Tensor&amp; B, const torch::Tensor&amp; C,
+                         double alpha, double beta) {
+    return run_gemm("<span data-k>naive</span>", launch_<span data-k>naive</span>_gemm, A, B, C, alpha, beta);
+}</code></pre>
+            </figure>
+            <ul>
+              <li>Đặt hàm này sau dòng <code>}  // namespace</code>.</li>
+              <li>Ở bước 3, bạn khai báo hàm này trong <code>torch_binding.h</code> với cùng tên và cùng chữ ký.</li>
+              <li>Dòng <code>return run_gemm(…)</code> cũng kiểm tra chữ ký của launcher ngay lúc compile. Ví dụ, với một launcher nhận <code>long M</code>, nvcc báo: <code>argument of type "cudaError_t (*)(long, int, …)" is incompatible with parameter of type "GemmLauncher"</code>.</li>
+            </ul>
+
+            <h3 id="b2-11"><span class="sn">2.11</span>Compile thử riêng <code>ops.cu</code></h3>
+            <div class="cmd"><pre><code>nvcc -std=c++20 --expt-relaxed-constexpr -c torch_ext/ops.cu -o /dev/null \
+  $(python -c 'from torch.utils.cpp_extension import include_paths; print(*("-I" + p for p in include_paths("cuda")))' 2&gt;/dev/null)</code></pre><button type="button" class="copy">Chép</button></div>
+            <ul>
+              <li>Lệnh này không cần bước 3 đến 6 và không cần GPU. Chạy lệnh từ thư mục gốc của repo, trong env <code>cxx</code>.</li>
+              <li>Nếu code đúng, lệnh không in gì và trả exit code 0 sau khoảng 25 giây.</li>
+              <li>Cờ <code>--expt-relaxed-constexpr</code> tắt 2 cảnh báo từ header <code>BFloat16.h</code> của torch. <code>cpp_extension</code> cũng thêm cờ này khi build ở bước 6.</li>
+              <li>Nếu nvcc báo <code>torch/all.h: No such file or directory</code>, chạy <code>conda activate cxx</code> rồi chạy lại lệnh.</li>
+            </ul>
+
+            <details class="answer" id="b2-answer">
+              <summary>Đáp án: torch_ext/ops.cu hoàn chỉnh cho kernel naive</summary>
+              <figure class="code">
+<pre><code>#include "../csrc/gemm/naive.cuh"           <span class="c">// launch_naive_gemm</span>
+
+#include &lt;torch/all.h&gt;                      <span class="c">// torch::Tensor, TORCH_CHECK</span>
+#include &lt;ATen/cuda/CUDAContext.h&gt;          <span class="c">// at::cuda::getCurrentCUDAStream</span>
+#include &lt;c10/cuda/CUDAGuard.h&gt;             <span class="c">// c10::cuda::CUDAGuard</span>
+#include &lt;c10/cuda/CUDAException.h&gt;         <span class="c">// C10_CUDA_CHECK</span>
+
+#include &lt;limits&gt;                           <span class="c">// std::numeric_limits</span>
+
+namespace {
+
+<span class="c">// Every launcher in csrc/gemm/ has this signature (see naive.cuh).</span>
+using GemmLauncher = cudaError_t (*)(int M, int N, int K,
+                                     float alpha, const float* dA, const float* dB,
+                                     float beta, float* dC, cudaStream_t stream);
+
+<span class="c">// Shared part of every op: check the tensors, pick the device and the stream,</span>
+<span class="c">// and hand device pointers to `launch`. Returns a new tensor; C stays unchanged.</span>
+torch::Tensor run_gemm(const char* op, GemmLauncher launch,
+                       const torch::Tensor&amp; A, const torch::Tensor&amp; B, const torch::Tensor&amp; C,
+                       double alpha, double beta) {
+    TORCH_CHECK(A.is_cuda() &amp;&amp; B.is_cuda() &amp;&amp; C.is_cuda(),
+                "gemm.", op, ": A, B, C must be CUDA tensors");
+    TORCH_CHECK(A.device() == B.device() &amp;&amp; A.device() == C.device(),
+                "gemm.", op, ": A, B, C must be on the same device");
+
+    TORCH_CHECK(A.scalar_type() == torch::kFloat32 &amp;&amp; B.scalar_type() == torch::kFloat32 &amp;&amp;
+                    C.scalar_type() == torch::kFloat32,
+                "gemm.", op, ": A, B, C must be float32");
+    TORCH_CHECK(A.is_contiguous() &amp;&amp; B.is_contiguous() &amp;&amp; C.is_contiguous(),
+                "gemm.", op, ": A, B, C must be contiguous (row-major)");
+    TORCH_CHECK(A.dim() == 2 &amp;&amp; B.dim() == 2 &amp;&amp; C.dim() == 2,
+                "gemm.", op, ": A, B, C must be 2-D");
+
+    const int64_t M = A.size(0), K = A.size(1), N = B.size(1);
+    TORCH_CHECK(B.size(0) == K,
+                "gemm.", op, ": A is ", M, "x", K, " but B is ", B.size(0), "x", N);
+    TORCH_CHECK(C.size(0) == M &amp;&amp; C.size(1) == N,
+                "gemm.", op, ": C must be ", M, "x", N, ", got ", C.size(0), "x", C.size(1));
+    constexpr int64_t kIntMax = std::numeric_limits&lt;int&gt;::max();
+    TORCH_CHECK(M &lt;= kIntMax &amp;&amp; N &lt;= kIntMax &amp;&amp; K &lt;= kIntMax,
+                "gemm.", op, ": M, N, K must fit in int");
+
+    <span class="c">// From here on, CUDA calls go to A's device and to the current stream there.</span>
+    const c10::cuda::CUDAGuard guard(A.device());
+
+    torch::Tensor out = C.clone();     <span class="c">// the kernel reads beta * C and overwrites it</span>
+    if (out.numel() == 0) return out;  <span class="c">// a grid of 0 blocks is an invalid launch</span>
+
+    <span class="c">// The launcher returns cudaGetLastError().</span>
+    <span class="c">// C10_CUDA_CHECK turns an error into a Python exception.</span>
+    C10_CUDA_CHECK(launch(
+        static_cast&lt;int&gt;(M), static_cast&lt;int&gt;(N), static_cast&lt;int&gt;(K),
+        static_cast&lt;float&gt;(alpha), A.data_ptr&lt;float&gt;(), B.data_ptr&lt;float&gt;(),
+        static_cast&lt;float&gt;(beta), out.data_ptr&lt;float&gt;(),
+        at::cuda::getCurrentCUDAStream()));
+    return out;
+}
+
+}  <span class="c">// namespace</span>
+
+<span class="c">// gemm.naive: kernel in csrc/gemm/naive.cu.</span>
+torch::Tensor naive_cuda(const torch::Tensor&amp; A, const torch::Tensor&amp; B, const torch::Tensor&amp; C,
+                         double alpha, double beta) {
+    return run_gemm("naive", launch_naive_gemm, A, B, C, alpha, beta);
+}</code></pre>
+              </figure>
+            </details>
+
+            <div class="note warn">
+              <p><strong>Trước bước 3</strong> Ngày 17/11/2026, nhánh <code>main</code> chưa có các file hạ tầng mà bước 3 đến 11 dùng: <code>build.toml</code>, <code>pytest.ini</code>, <code>torch_ext/registration_dev.h</code>, <code>torch_ext/gemm/_ops.py</code>, <code>tests/test_matmul.py</code>, hai script trong <code>benchmarks/</code> và <code>script/roofline.py</code>. <code>script/build.sh</code> trên <code>main</code> vẫn import <code>supercuda</code>.</p>
+              <p>Branch <code>origin/claude/sweet-faraday-xea66r</code> có bản mới của 9 file này, nhưng dùng thư mục <code>torch-ext/</code> và còn tên cũ <code>sgemm</code> trong vài comment. Chạy lệnh dưới đây từ thư mục gốc của repo. Lệnh chép 9 file vào đúng chỗ, dưới <code>torch_ext/</code>, rồi đổi <code>torch-ext</code> thành <code>torch_ext</code> và <code>sgemm</code> thành <code>gemm</code> trong nội dung file.</p>
+            </div>
+            <div class="cmd"><pre><code>B=origin/claude/sweet-faraday-xea66r
+mkdir -p torch_ext/gemm tests benchmarks
+for f in build.toml pytest.ini script/build.sh script/roofline.py \
+         torch-ext/registration_dev.h torch-ext/gemm/_ops.py \
+         tests/test_matmul.py benchmarks/benchmark_matmul.py benchmarks/profile_matmul.py; do
+  git show "${B}:${f}" | sed -e 's/torch-ext/torch_ext/g' -e 's/sgemm/gemm/g' &gt; "${f/torch-ext/torch_ext}"
+done</code></pre><button type="button" class="copy">Chép</button></div>
+          </div>
+        </details>
+        <label class="done"><input type="checkbox" id="done-2" data-done="2"> Xong bước 2</label>
+      </section>
+
+      <section id="buoc-3">
+        <h2><span class="num">BƯỚC 3</span>Khai báo và đăng ký op</h2>
+        <figure class="code">
+          <figcaption>torch_ext/torch_binding.h</figcaption>
+<pre><code>torch::Tensor <span data-k>naive</span>_cuda(const torch::Tensor&amp; A, const torch::Tensor&amp; B, const torch::Tensor&amp; C,
+                         double alpha, double beta);</code></pre>
+        </figure>
+        <figure class="code">
+          <figcaption>torch_ext/torch_binding.cpp</figcaption>
+<pre><code>TORCH_LIBRARY_EXPAND(TORCH_EXTENSION_NAME, ops) {
+    ops.def("<span data-k>naive</span>(Tensor A, Tensor B, Tensor C, float alpha, float beta) -&gt; Tensor");
+#if defined(CUDA_KERNEL) || defined(ROCM_KERNEL)
+    ops.impl("<span data-k>naive</span>", torch::kCUDA, &amp;<span data-k>naive</span>_cuda);
+#endif
+}</code></pre>
+        </figure>
+        <ul>
+          <li><code>ops.def</code> khai báo schema của op: tên, kiểu tham số, kiểu trả về. <code>float</code> trong schema là <code>double</code> trong C++.</li>
+          <li><code>ops.impl</code> gắn hàm C++ cho device CUDA. Dispatcher của PyTorch chọn hàm theo device của tensor, nên tensor trên GPU đi tới <code><span data-k>naive</span>_cuda</code>.</li>
+          <li>Namespace của op là tên extension: <code>gemm</code>. Python thấy op ở <code>torch.ops.gemm.<span data-k>naive</span></code>.</li>
+        </ul>
+        <label class="done"><input type="checkbox" id="done-3" data-done="3"> Xong bước 3</label>
+      </section>
+
+      <section id="buoc-4">
+        <h2><span class="num">BƯỚC 4</span>Thêm file vào build.toml</h2>
+        <figure class="code">
+          <figcaption>build.toml</figcaption>
+<pre><code>[kernel.gemm]
+language = "cpp-cuda"
+depends = ["torch"]
+src = [
+  "csrc/gemm/<span data-k>naive</span>.cu",
+  "csrc/gemm/<span data-k>naive</span>.cuh",
+  "torch_ext/ops.cu",
+]
+include = ["include", "csrc/gemm"]</code></pre>
+        </figure>
+        <p><code>build.toml</code> là danh sách nguồn duy nhất. Bản build dev chỉ compile các file <code>.cu</code> và <code>.cpp</code> trong danh sách. Mục <code>include</code> thêm hai thư mục vào đường tìm header: <code>include/</code> chứa <code>common.cuh</code>, <code>csrc/gemm/</code> chứa <code><span data-k>naive</span>.cuh</code>. <code>ops.cu</code> ở bước 2 include <code><span data-k>naive</span>.cuh</code> bằng đường dẫn tương đối, nên vẫn compile khi thiếu <code>csrc/gemm/</code>.</p>
+        <label class="done"><input type="checkbox" id="done-4" data-done="4"> Xong bước 4</label>
+      </section>
+
+      <section id="buoc-5">
+        <h2><span class="num">BƯỚC 5</span>Viết wrapper Python</h2>
+        <figure class="code">
+          <figcaption>torch_ext/gemm/__init__.py</figcaption>
+<pre><code>from ._ops import ops
+
+
+def <span data-k>naive</span>(A: torch.Tensor, B: torch.Tensor, C: torch.Tensor,
+          alpha: float = 1.0, beta: float = 0.0) -&gt; torch.Tensor:
+    return ops.<span data-k>naive</span>(A, B, C, alpha, beta)
+
+
+KERNELS = {
+    "<span data-k>naive</span>": <span data-k>naive</span>,
+}</code></pre>
+        </figure>
+        <p>Wrapper là một hàm Python mỏng bọc quanh op. Wrapper cho <code>alpha</code>, <code>beta</code> giá trị mặc định và một docstring. <code>tests/</code> và <code>benchmarks/</code> lặp qua dict <code>KERNELS</code>, nên một kernel có trong dict này tự vào test và benchmark.</p>
+        <label class="done"><input type="checkbox" id="done-5" data-done="5"> Xong bước 5</label>
+      </section>
+
+      <section id="buoc-6">
+        <h2><span class="num">BƯỚC 6</span>Build ra gemm.so</h2>
+        <div class="cmd"><pre><code>conda activate cxx
+script/build.sh release</code></pre><button type="button" class="copy">Chép</button></div>
+        <figure class="out"><figcaption>Output, đã rút gọn các cờ compile</figcaption>
+<pre><code>[1/4] nvcc … -O3 -lineinfo -c csrc/gemm/naive.cu -o naive.cuda.o
+[2/4] c++  … -O3 -c torch_ext/torch_binding.cpp -o torch_binding.o
+[3/4] nvcc … -O3 -lineinfo -c torch_ext/ops.cu -o ops.cuda.o
+[4/4] c++ torch_binding.o naive.cuda.o ops.cuda.o -shared … -o gemm.so
+gemm (release) ready, kernels: naive</code></pre>
+        </figure>
+        <p><code>script/build.sh</code> chỉ chạy <code>import gemm</code>. Lúc import, <code>gemm/_ops.py</code> đọc <code>build.toml</code>, gọi <code>torch.utils.cpp_extension.load</code> để compile, rồi nạp <code>build/release/gemm.so</code> bằng <code>torch.ops.load_library</code>. Lần import sau chỉ compile lại file đã đổi.</p>
+        <div class="note warn">
+          <p><strong>Bản debug</strong> <code>script/build.sh debug</code> dùng <code>-O0 -g -G</code> cho cuda-gdb. Cờ <code>-G</code> tắt tối ưu trên device: không benchmark và không profile bản này.</p>
+        </div>
+        <h3>Nếu build hoặc import lỗi</h3>
+        <ul>
+          <li>nvcc sai phiên bản: <code>echo $CUDA_HOME</code> phải in đường dẫn của env <code>cxx</code>.</li>
+          <li>Lỗi <code>undefined symbol</code> có tên <code>launch_<span data-k>naive</span>_gemm</code>: <code>build.toml</code> thiếu file <code>.cu</code> của kernel (bước 4).</li>
+          <li><code>torch.ops.gemm</code> không có <code><span data-k>naive</span></code>: thiếu <code>ops.def</code> hoặc <code>ops.impl</code> (bước 3).</li>
+        </ul>
+        <label class="done"><input type="checkbox" id="done-6" data-done="6"> Xong bước 6</label>
+      </section>
+
+      <section id="buoc-7">
+        <h2><span class="num">BƯỚC 7</span>Gọi từ Python</h2>
+        <div class="cmd"><pre><code>PYTHONPATH=torch_ext python</code></pre><button type="button" class="copy">Chép</button></div>
+        <figure class="code">
+          <figcaption>Trong Python</figcaption>
+<pre><code>import torch, gemm
+
+A = torch.randn(4, 3, device="cuda")     <span class="c"># M x K</span>
+B = torch.randn(3, 5, device="cuda")     <span class="c"># K x N</span>
+C = torch.zeros(4, 5, device="cuda")     <span class="c"># M x N</span>
+
+out = gemm.<span data-k>naive</span>(A, B, C, alpha=1.0, beta=0.0)
+print(torch.allclose(out, A @ B, atol=1e-5))        <span class="c"># True</span>
+
+gemm.<span data-k>naive</span>(A.double(), B.double(), C.double())
+<span class="c"># RuntimeError: gemm.<span data-k>naive</span>: A, B, C must be float32</span></code></pre>
+        </figure>
+        <p>Package <code>gemm</code> nằm trong <code>torch_ext/</code>, nên Python cần thư mục đó trong đường dẫn import. Với pytest, <code>pytest.ini</code> đã đặt <code>pythonpath = torch_ext</code>.</p>
+        <label class="done"><input type="checkbox" id="done-7" data-done="7"> Xong bước 7</label>
+      </section>
+
+      <div class="phase">Đúng trước, nhanh sau</div>
+
+      <section id="buoc-8">
+        <h2><span class="num">BƯỚC 8</span>Một test pytest</h2>
+        <figure class="code">
+          <figcaption>tests/test_first.py (file mới, bạn tự tạo)</figcaption>
+<pre><code>import torch
+
+import gemm
+
+
+def test_<span data-k>naive</span>_matches_torch():
+    A = torch.randn(64, 32, device="cuda")   <span class="c"># M x K</span>
+    B = torch.randn(32, 48, device="cuda")   <span class="c"># K x N</span>
+    C = torch.zeros(64, 48, device="cuda")   <span class="c"># M x N</span>
+
+    out = gemm.<span data-k>naive</span>(A, B, C, alpha=1.0, beta=0.0)
+
+    torch.testing.assert_close(out, A @ B, rtol=1e-3, atol=1e-3)</code></pre>
+        </figure>
+        <div class="cmd"><pre><code>python -m pytest tests/test_first.py -q</code></pre><button type="button" class="copy">Chép</button></div>
+        <figure class="out"><figcaption>Output với kernel naive</figcaption>
+<pre><code>.                                                        [100%]
+1 passed in 1.28s</code></pre>
+        </figure>
+        <p>Test có ba phần: tạo input, gọi kernel, so sánh với PyTorch. Bốn lựa chọn trong test này có lý do:</p>
+        <ul>
+          <li>M = 64, N = 48, K = 32 là ba số khác nhau. Nếu kernel dùng nhầm M cho N, test fail.</li>
+          <li><code>A @ B</code> chạy cuBLAS, một bản cài đặt độc lập với kernel của bạn.</li>
+          <li><code>beta=0.0</code> và C toàn số 0: test chỉ kiểm tra phần <code>A @ B</code>. Khi test này pass, thêm test thứ hai với <code>beta</code> khác 0.</li>
+          <li><code>rtol</code>, <code>atol</code> = 1e-3: kernel và cuBLAS cộng K tích theo thứ tự khác nhau, nên float32 lệch khoảng 1e-4. Một lỗi index cho sai số từ 1 trở lên.</li>
+        </ul>
+        <h3>Khi bạn đã quen</h3>
+        <p><code>tests/test_matmul.py</code> là bản đầy đủ: mọi kernel trong <code>KERNELS</code>, 6 kích thước, 3 cặp (alpha, beta), cộng 2 test của <code>run_gemm</code>. Hiện có 20 test, cả 20 pass.</p>
+        <div class="cmd"><pre><code>python -m pytest tests -q
+script/sanitizer.sh memcheck python -m pytest tests -q -x</code></pre><button type="button" class="copy">Chép</button></div>
+        <p>Lệnh thứ hai chạy cùng các test dưới compute-sanitizer để tìm lỗi đọc, ghi ngoài vùng nhớ. Kết quả hiện tại: <code>ERROR SUMMARY: 0 errors</code>.</p>
+        <label class="done"><input type="checkbox" id="done-8" data-done="8"> Xong bước 8</label>
+      </section>
+
+      <section id="buoc-9">
+        <h2><span class="num">BƯỚC 9</span>Benchmark: gọi .so hay gọi hàm Python?</h2>
+        <div class="note">
+          <p><strong>Dùng hàm Python</strong> <code>gemm.naive</code>. Hàm đó gọi đúng op nằm trong <code>gemm.so</code>. Không có cách gọi <code>.so</code> nào nhanh hơn.</p>
+        </div>
+        <ul class="flow" aria-label="Ba cách gọi cùng một kernel">
+          <li>gemm.naive</li><li class="arrow">→</li>
+          <li>torch.ops.gemm.naive</li><li class="arrow">→</li>
+          <li class="end">gemm.so: naive_cuda → launcher → kernel</li>
+        </ul>
+        <ul class="flow" aria-label="Chương trình standalone">
+          <li>csrc/bin/gemm.out</li><li class="arrow">→</li>
+          <li class="end">launcher → kernel (không có Torch)</li>
+        </ul>
+        <div class="tw"><table>
+          <thead><tr><th>M = N = K</th><th class="num">gemm.naive</th><th class="num">torch.ops.gemm.naive</th><th>Chênh lệch</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td class="num">9.4 · 9.7 µs</td><td class="num">9.2 · 9.4 µs</td><td>khoảng 0.3 µs</td></tr>
+            <tr><td>32</td><td class="num">22.3 · 22.0 µs</td><td class="num">21.9 · 21.9 µs</td><td>khoảng 0.3 µs</td></tr>
+            <tr><td>256</td><td class="num">204.9 · 205.2 µs</td><td class="num">204.8 · 204.4 µs</td><td>khoảng 0.4 µs</td></tr>
+            <tr><td>1024</td><td class="num">11,444 · 11,917 µs</td><td class="num">11,956 · 12,380 µs</td><td>nhỏ hơn dao động giữa hai lần đo (4 %)</td></tr>
+          </tbody>
+          <caption>Thời gian trung bình một lời gọi, có <code>torch.cuda.synchronize()</code> sau mỗi lời gọi. Mỗi ô là hai lần đo: 2000 lời gọi mỗi lần (100 ở 1024).</caption>
+        </table></div>
+        <ul>
+          <li>Wrapper Python thêm khoảng 0.3 µs.</li>
+          <li>Chi phí cố định của một lời gọi op là khoảng 9 µs: kiểm tra input, clone C, launch, synchronize. Đây là dòng M = N = K = 1.</li>
+          <li>Ở 1024, kernel chạy khoảng 11.4 ms. 9 µs là 0.08 % của thời gian đó.</li>
+          <li>Với kernel chạy dưới 100 µs, chi phí cố định là phần lớn. Khi đó lấy thời gian của riêng kernel từ nsys (bước 10).</li>
+        </ul>
+        <h3>Chạy benchmark</h3>
+        <div class="cmd"><pre><code>python benchmarks/benchmark_matmul.py
+python benchmarks/benchmark_matmul.py 1024 1024 1024 --kernels <span data-k>naive</span></code></pre><button type="button" class="copy">Chép</button></div>
+        <figure class="out"><figcaption>Output với kernel naive, hai kích thước đầu</figcaption>
+<pre><code>NVIDIA GeForce RTX 5060 Ti: FP32 peak 23.7 TFLOP/s, DRAM 448 GB/s, ridge point 52.9 FLOP/B
+
+1024 x 1024 x 1024   FLOP 2.147e+09   AI max 128 FLOP/B
+  cuBLAS              0.182 ms    11779.7 GFLOP/s   49.7 % peak
+  naive              11.406 ms      188.3 GFLOP/s    0.8 % peak     62.6 x cuBLAS
+
+2048 x 2048 x 2048   FLOP 1.718e+10   AI max 256 FLOP/B
+  cuBLAS              1.158 ms    14829.7 GFLOP/s   62.6 % peak
+  naive              89.800 ms      191.3 GFLOP/s    0.8 % peak     77.5 x cuBLAS</code></pre>
+        </figure>
+        <p>Script dùng <code>triton.testing.do_bench</code>: hàm này chạy warm-up, chạy nhiều lần, synchronize GPU, rồi trả median. Ba cột cần đọc: <code>ms</code>, <code>GFLOP/s</code> (bằng 2·M·N·K chia thời gian) và <code>x cuBLAS</code>.</p>
+        <h3>Bốn quy tắc khi đo thời gian</h3>
+        <ol class="plain">
+          <li>Chỉ đo bản release.</li>
+          <li>Một lời gọi kernel trả về ngay; GPU vẫn đang chạy. Không dùng <code>time.time()</code> quanh lời gọi nếu thiếu <code>torch.cuda.synchronize()</code>.</li>
+          <li>Bỏ các lần chạy đầu: lần đầu tạo CUDA context và nạp kernel.</li>
+          <li>So sánh các kernel ở cùng kích thước, cùng <code>alpha</code>, <code>beta</code>, và giữ TF32 tắt.</li>
+        </ol>
+        <label class="done"><input type="checkbox" id="done-9" data-done="9"> Xong bước 9</label>
+      </section>
+
+      <div class="phase">Tìm chỗ chậm</div>
+
+      <section id="buoc-10">
+        <h2><span class="num">BƯỚC 10</span>Timeline: thời gian nằm ở đâu?</h2>
+        <p>Câu hỏi của bước này: kernel có phải là chỗ chậm không? Nếu một lần copy hoặc một lần synchronize chiếm phần lớn thời gian, hãy sửa op, không sửa kernel.</p>
+        <h3>Cách nhanh: torch.profiler</h3>
+        <figure class="code">
+          <figcaption>Python, chạy với PYTHONPATH=torch_ext</figcaption>
+<pre><code>import torch, gemm
+from torch.profiler import profile, ProfilerActivity
+
+A = torch.randn(1024, 1024, device="cuda")
+B = torch.randn(1024, 1024, device="cuda")
+C = torch.randn(1024, 1024, device="cuda")
+gemm.<span data-k>naive</span>(A, B, C, 0.5, -0.1)          <span class="c"># warm-up</span>
+torch.cuda.synchronize()
+
+with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
+    for _ in range(5):
+        gemm.<span data-k>naive</span>(A, B, C, 0.5, -0.1)
+    torch.cuda.synchronize()
+
+print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=8))</code></pre>
+        </figure>
+        <div class="tw"><table>
+          <thead><tr><th>Name</th><th class="num">CUDA total</th><th class="num">CUDA time avg</th><th class="num"># Calls</th></tr></thead>
+          <tbody>
+            <tr><td><code>gemm::naive</code> (op)</td><td class="num">58.811 ms</td><td class="num">11.762 ms</td><td class="num">5</td></tr>
+            <tr><td><code>naive_gemm(int, int, int, float, …)</code> (kernel)</td><td class="num">58.780 ms</td><td class="num">11.756 ms</td><td class="num">5</td></tr>
+            <tr><td><code>aten::clone</code></td><td class="num">31.456 µs</td><td class="num">6.291 µs</td><td class="num">5</td></tr>
+            <tr><td><code>Memcpy DtoD (Device -&gt; Device)</code></td><td class="num">31.456 µs</td><td class="num">6.291 µs</td><td class="num">5</td></tr>
+          </tbody>
+          <caption>Các cột CUDA của bảng mà profiler in ra, kernel naive, 1024 x 1024 x 1024.</caption>
+        </table></div>
+        <p>Bảng nối tên op với tên kernel: <code>gemm::naive</code> chạy <code>naive_gemm</code>. Kernel chiếm 99.95 % thời gian GPU. Lần clone C chỉ là 6.3 µs.</p>
+        <h3>Cách đầy đủ: nsys</h3>
+        <div class="cmd"><pre><code>script/nsys.sh <span data-k>naive</span>_1024 python benchmarks/profile_matmul.py --kernel <span data-k>naive</span>
+nsys stats --report cuda_gpu_kern_sum --report cuda_api_sum reports/<span data-k>naive</span>_1024.nsys-rep</code></pre><button type="button" class="copy">Chép</button></div>
+        <div class="tw"><table>
+          <thead><tr><th>Báo cáo</th><th>Dòng</th><th class="num">Số lần</th><th class="num">Thời gian</th></tr></thead>
+          <tbody>
+            <tr><td>cuda_gpu_kern_sum</td><td><code>naive_gemm</code></td><td class="num">5</td><td class="num">trung bình 11.904 ms</td></tr>
+            <tr><td>cuda_gpu_mem_time_sum</td><td>memcpy Device-to-Device</td><td class="num">5</td><td class="num">trung bình 4.9 µs</td></tr>
+            <tr><td>cuda_api_sum</td><td><code>cudaLaunchKernel</code></td><td class="num">8</td><td class="num">median 3.1 µs</td></tr>
+            <tr><td>cuda_api_sum</td><td><code>cudaDeviceSynchronize</code></td><td class="num">1</td><td class="num">59.436 ms</td></tr>
+          </tbody>
+          <caption>Kết quả của <code>nsys stats</code> với kernel naive. <code>nsys-ui reports/naive_1024.nsys-rep</code> mở cùng dữ liệu dưới dạng timeline.</caption>
+        </table></div>
+        <p>Hai dòng cuối cho thấy launch là bất đồng bộ. <code>cudaLaunchKernel</code> trả về sau 3.1 µs. Host chờ 59.4 ms trong <code>cudaDeviceSynchronize</code>, bằng thời gian của 5 lần chạy kernel.</p>
+        <div class="tw"><table>
+          <thead><tr><th>Công cụ</th><th>Dùng khi</th></tr></thead>
+          <tbody>
+            <tr><td>torch.profiler</td><td>Bạn cần biết op nào chạy kernel nào và mỗi kernel tốn bao lâu. Không cần công cụ ngoài Python.</td></tr>
+            <tr><td>nsys</td><td>Bạn cần timeline của cả process: lời gọi CUDA API, các lần copy, khoảng trống giữa CPU và GPU.</td></tr>
+          </tbody>
+        </table></div>
+        <label class="done"><input type="checkbox" id="done-10" data-done="10"> Xong bước 10</label>
+      </section>
+
+      <section id="buoc-11">
+        <h2><span class="num">BƯỚC 11</span>Bên trong kernel: ncu</h2>
+        <div class="cmd"><pre><code>script/ncu.sh <span data-k>naive</span>_gemm <span data-k>naive</span>_1024 python benchmarks/profile_matmul.py --kernel <span data-k>naive</span>
+ncu --import reports/<span data-k>naive</span>_1024.ncu-repz --page details</code></pre><button type="button" class="copy">Chép</button></div>
+        <p>Tham số đầu của <code>script/ncu.sh</code> là tên của CUDA kernel (<code><span data-k>naive</span>_gemm</code>), không phải tên op. Script bỏ qua 3 lần launch đầu và profile lần thứ 4. ncu 2026.3.1 ghi file với đuôi <code>.ncu-repz</code>. <code>ncu-ui</code> mở cùng file đó dưới dạng giao diện.</p>
+        <p>Đọc các section theo thứ tự này. Cột bên phải là số của kernel naive ở 1024 x 1024 x 1024.</p>
+        <div class="tw"><table>
+          <thead><tr><th>Section</th><th>Metric</th><th class="num">naive</th><th>Ý nghĩa</th></tr></thead>
+          <tbody>
+            <tr><td rowspan="3">GPU Speed Of Light Throughput</td><td>Duration</td><td class="num">12.30 ms</td><td>Thời gian kernel khi có profiler</td></tr>
+            <tr><td>Memory Throughput</td><td class="num">97.42 %</td><td>Đường bộ nhớ gần đầy</td></tr>
+            <tr><td>Compute (SM) Throughput</td><td class="num">11.81 %</td><td>Phần tính toán gần như rảnh</td></tr>
+            <tr><td rowspan="3">Memory Workload Analysis</td><td>L1/TEX Hit Rate</td><td class="num">99.23 %</td><td>Dữ liệu hầu hết có sẵn trong L1</td></tr>
+            <tr><td>L2 Hit Rate</td><td class="num">82.82 %</td><td></td></tr>
+            <tr><td>Byte dùng trong mỗi sector 32 byte</td><td class="num">4.0</td><td>Global load và global store không coalesced</td></tr>
+            <tr><td>Scheduler Statistics</td><td>No Eligible</td><td class="num">93.58 %</td><td>Phần lớn thời gian không có warp nào sẵn sàng chạy</td></tr>
+            <tr><td>Warp State Statistics</td><td>Warp Cycles Per Issued Instruction</td><td class="num">121.93</td><td>97.9 chu kỳ trong đó là chờ hàng đợi bộ nhớ của L1</td></tr>
+            <tr><td rowspan="2">Occupancy</td><td>Achieved Occupancy</td><td class="num">65.22 %</td><td>Giới hạn lý thuyết: 66.67 %</td></tr>
+            <tr><td>Registers Per Thread</td><td class="num">40</td><td>Số register và số warp mỗi block giới hạn occupancy</td></tr>
+          </tbody>
+        </table></div>
+        <h3>Cách đọc kết quả này</h3>
+        <ol class="plain">
+          <li>Speed Of Light cho biết tài nguyên bị giới hạn. Ở đây là bộ nhớ (97 %), không phải tính toán (12 %).</li>
+          <li>Memory Workload Analysis cho biết lý do. L1 chuyển dữ liệu theo sector 32 byte, và mỗi thread chỉ dùng 4 byte của sector đó: một float.</li>
+          <li>Warp State xác nhận: các warp đứng chờ bộ nhớ, không chờ phép tính.</li>
+        </ol>
+        <p>Trong <code>naive_gemm</code>, <code>threadIdx.x</code> chọn hàng. 32 thread của một warp có 32 <code>rowIdx</code> liên tiếp và cùng một <code>colIdx</code>. Vì vậy <code>A[rowIdx * K + k]</code> của hai thread cạnh nhau cách nhau K float, và <code>C[rowIdx * N + colIdx]</code> cách nhau N float. Mỗi warp đọc 32 sector khác nhau cho một lệnh load.</p>
+        <div class="note">
+          <p><strong>Giả thuyết cho kernel kế tiếp</strong> Cho 32 thread của một warp đọc các địa chỉ liền nhau (coalesced). ncu ước lượng mức tăng tốc 85 % cho riêng điểm này.</p>
+        </div>
+        <h3>Roofline của báo cáo đó</h3>
+        <div class="cmd"><pre><code>python script/roofline.py reports/<span data-k>naive</span>_1024.ncu-repz</code></pre><button type="button" class="copy">Chép</button></div>
+        <figure class="out"><figcaption>Output với kernel naive</figcaption>
+<pre><code>time   : 12.300 ms
+FLOP   : 3.222e+09 executed = 2 x 1.074e+09 FFMA + 1.075e+09 FMUL + 0 FADD
+FLOP/s : 262.0 GFLOP/s = 1.1 % of the FP32 peak (23.7 TFLOP/s = 2 x 4608 FFMA per cycle x 2.57 GHz)
+
+level      bytes   AI FLOP/B            BW       peak BW     roof at this AI  FLOP/s/roof  ncu busy
+DRAM     60.9 MB      52.911      5.0 GB/s    441.2 GB/s        23.3 TFLOP/s        1.1 %     1.1 %
+L2      343.6 MB       9.379     27.9 GB/s      2.4 TB/s        22.2 TFLOP/s        1.2 %     2.2 %
+L1       35.5 GB       0.091      2.9 TB/s     47.4 TB/s         4.3 TFLOP/s        6.1 %    97.4 %
+
+verdict: memory-bound at L1: ncu reports it 97 % busy.
+         But FLOP/s is only 6 % of the L1 roof: the level is busy with requests, not with bytes.</code></pre>
+        </figure>
+        <ul>
+          <li>AI (arithmetic intensity) là số FLOP kernel chạy trên mỗi byte kernel chuyển. Kernel có ba giá trị AI, một cho mỗi tầng bộ nhớ: DRAM, L2, L1.</li>
+          <li>Cột <code>FLOP/s/roof</code> cho biết kernel gần mái (roof) của tầng đó tới đâu. Cột <code>ncu busy</code> là mức bận của tầng đó theo ncu.</li>
+          <li>Với naive, L1 bận 97 % nhưng FLOP/s chỉ bằng 6 % mái của L1. L1 bận vì số request, không vì số byte. Đây là cùng một kết luận với Memory Workload Analysis.</li>
+          <li>Thêm <code>--png</code> để vẽ biểu đồ. Biểu đồ cần matplotlib, và env <code>cxx</code> chưa có package này.</li>
+        </ul>
+        <label class="done"><input type="checkbox" id="done-11" data-done="11"> Xong bước 11</label>
+      </section>
+
+      <section id="buoc-12">
+        <h2><span class="num">BƯỚC 12</span>Vòng lặp tối ưu</h2>
+        <ol class="loop" aria-label="Sáu bước của một vòng lặp">
+          <li><strong>Đo baseline</strong><span>benchmark_matmul.py: ghi ms và GFLOP/s</span></li>
+          <li><strong>Tìm chỗ chậm</strong><span>torch.profiler hoặc nsys: kernel hay op?</span></li>
+          <li><strong>Tìm nguyên nhân</strong><span>ncu và roofline.py: bộ nhớ, tính toán, hay occupancy?</span></li>
+          <li><strong>Một giả thuyết, một thay đổi</strong><span>kernel mới trong file mới, bước 1 đến 5</span></li>
+          <li><strong>Kiểm tra đúng</strong><span>pytest, rồi memcheck</span></li>
+          <li class="back"><strong>Đo lại và so sánh</strong><span>benchmark, rồi ncu trên kernel mới. Quay lại ô 1.</span></li>
+        </ol>
+        <ul>
+          <li>Viết mỗi ý tưởng thành một kernel mới: <code>csrc/gemm/&lt;tên&gt;.cu</code>. Kernel cũ ở lại trong <code>KERNELS</code>, nên benchmark in cả hai trên cùng một bảng.</li>
+          <li>Mỗi vòng chỉ đổi một thứ. Nếu bạn đổi hai thứ, bạn không biết thứ nào tạo ra kết quả.</li>
+          <li>Sau khi đo lại, mở ncu và xem đúng metric bạn nhắm tới. Nếu thời gian giảm mà metric đó không đổi, giả thuyết sai.</li>
+          <li>Ghi lại một dòng cho mỗi kernel. Dòng đầu của bảng dưới là kết quả hôm nay.</li>
+        </ul>
+        <div class="tw"><table>
+          <thead><tr><th>Kernel</th><th class="num">ms ở 1024</th><th class="num">GFLOP/s</th><th class="num">x cuBLAS</th><th>Giới hạn chính theo ncu</th><th>Giả thuyết kế tiếp</th></tr></thead>
+          <tbody>
+            <tr><td><code>naive</code></td><td class="num">11.406</td><td class="num">188.3</td><td class="num">62.6</td><td>Memory Throughput 97 %; 4 trong 32 byte mỗi sector</td><td>Truy cập coalesced</td></tr>
+            <tr><td><code data-k-next>kernel kế tiếp</code></td><td class="num">…</td><td class="num">…</td><td class="num">…</td><td>…</td><td>…</td></tr>
+          </tbody>
+        </table></div>
+        <label class="done"><input type="checkbox" id="done-12" data-done="12"> Xong bước 12</label>
+      </section>
+
+      <section id="bang-lenh">
+        <h2>Bảng lệnh</h2>
+        <p>Chạy mọi lệnh từ thư mục gốc của repo, trong env <code>cxx</code>.</p>
+        <div class="tw"><table>
+          <thead><tr><th>Việc</th><th>Lệnh</th></tr></thead>
+          <tbody>
+            <tr><td>Chạy kernel không cần Torch</td><td><code>script/compile_n_run.sh csrc/gemm</code></td></tr>
+            <tr><td>Build release</td><td><code>script/build.sh release</code></td></tr>
+            <tr><td>Test</td><td><code>python -m pytest tests -q</code></td></tr>
+            <tr><td>Lỗi bộ nhớ</td><td><code>script/sanitizer.sh memcheck python -m pytest tests -q -x</code></td></tr>
+            <tr><td>Benchmark</td><td><code>python benchmarks/benchmark_matmul.py</code></td></tr>
+            <tr><td>Timeline</td><td><code>script/nsys.sh <span data-k>naive</span>_1024 python benchmarks/profile_matmul.py --kernel <span data-k>naive</span></code></td></tr>
+            <tr><td>Metric của một kernel</td><td><code>script/ncu.sh <span data-k>naive</span>_gemm <span data-k>naive</span>_1024 python benchmarks/profile_matmul.py --kernel <span data-k>naive</span></code></td></tr>
+            <tr><td>Đọc báo cáo ncu</td><td><code>ncu --import reports/<span data-k>naive</span>_1024.ncu-repz --page details</code></td></tr>
+            <tr><td>Roofline của báo cáo đó</td><td><code>python script/roofline.py reports/<span data-k>naive</span>_1024.ncu-repz</code></td></tr>
+          </tbody>
+        </table></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script>
+(function () {
+  var KEY = "kernel-to-torch-op";
+  var state = { k: "naive", done: {}, open: {} };
+  try {
+    var saved = JSON.parse(localStorage.getItem(KEY) || "null");
+    if (saved && typeof saved === "object") {
+      if (typeof saved.k === "string") state.k = saved.k;
+      if (saved.done && typeof saved.done === "object") state.done = saved.done;
+      if (saved.open && typeof saved.open === "object") state.open = saved.open;
+    }
+  } catch (e) {}
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  // Kernel name: rewrite every [data-k] span.
+  var input = document.getElementById("kernel-name");
+  var msg = document.getElementById("kernel-msg");
+  var VALID = /^[a-z][a-z0-9_]*$/;
+  function setMsg(text, isErr) {
+    msg.textContent = text;
+    msg.className = isErr ? "hint err" : "hint";
+  }
+  function applyName(name) {
+    var spans = document.querySelectorAll("[data-k]");
+    for (var i = 0; i < spans.length; i++) spans[i].textContent = name;
+    if (name === "naive") {
+      setMsg("Với naive, các đoạn mã ở bước 1 đến 8 khớp với mã trong repo. Nhập tên khác để thấy đúng các dòng bạn cần thêm cho kernel mới.", false);
+    } else {
+      setMsg("Các đoạn mã và lệnh giờ dùng tên " + name + ". Các bảng số đo vẫn là của kernel naive.", false);
+    }
+  }
+  function onName() {
+    var v = input.value.trim();
+    if (!VALID.test(v)) {
+      setMsg("Tên kernel chỉ gồm chữ thường, số và dấu gạch dưới, và bắt đầu bằng một chữ. Ví dụ: coalescing.", true);
+      return;
+    }
+    state.k = v;
+    save();
+    applyName(v);
+  }
+  input.addEventListener("input", onName);
+  var presets = document.querySelectorAll("[data-preset]");
+  for (var p = 0; p < presets.length; p++) {
+    presets[p].addEventListener("click", function () {
+      input.value = this.getAttribute("data-preset");
+      onName();
+    });
+  }
+  if (VALID.test(state.k) && state.k !== "naive") {
+    input.value = state.k;
+    applyName(state.k);
+  } else if (VALID.test(input.value.trim()) && input.value.trim() !== "naive") {
+    onName();
+  }
+
+  // Progress: one checkbox per step, mirrored in the rail.
+  function paint(step, on) {
+    var link = document.querySelector('.rail a[data-step="' + step + '"]');
+    if (!link) return;
+    link.classList.toggle("is-done", !!on);
+    link.querySelector(".n").textContent = on ? "✓" : step;
+  }
+  var boxes = document.querySelectorAll("[data-done]");
+  for (var b = 0; b < boxes.length; b++) {
+    (function (box) {
+      var step = box.getAttribute("data-done");
+      if (state.done[step]) box.checked = true;
+      paint(step, box.checked);
+      box.addEventListener("change", function () {
+        state.done[step] = box.checked;
+        save();
+        paint(step, box.checked);
+      });
+    })(boxes[b]);
+  }
+
+  // Copy buttons on command blocks.
+  var copies = document.querySelectorAll(".copy");
+  for (var c = 0; c < copies.length; c++) {
+    copies[c].addEventListener("click", function () {
+      var btn = this;
+      var pre = btn.parentNode.querySelector("pre");
+      var text = pre.textContent;
+      function flash(label) {
+        btn.textContent = label;
+        setTimeout(function () { btn.textContent = "Chép"; }, 1600);
+      }
+      function selectIt() {
+        var range = document.createRange();
+        range.selectNodeContents(pre);
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        flash("Đã chọn: Ctrl+C");
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { flash("Đã chép"); }, selectIt);
+      } else {
+        selectIt();
+      }
+    });
+  }
+
+  // Dropdowns: remember which ones are open, and open the ones that hold a link target.
+  var drops = document.querySelectorAll("details[id]");
+  for (var d = 0; d < drops.length; d++) {
+    (function (det) {
+      if (state.open[det.id]) det.open = true;
+      det.addEventListener("toggle", function () {
+        state.open[det.id] = det.open;
+        save();
+      });
+    })(drops[d]);
+  }
+  function reveal(id) {
+    var el = id ? document.getElementById(id) : null;
+    if (!el) return null;
+    for (var p = el.closest("details"); p; p = p.parentElement ? p.parentElement.closest("details") : null) p.open = true;
+    return el;
+  }
+  function targetOf(hash) {
+    try { return decodeURIComponent(hash.slice(1)); } catch (e) { return ""; }
+  }
+  document.addEventListener("click", function (ev) {
+    var a = ev.target && ev.target.closest ? ev.target.closest('a[href^="#"]') : null;
+    if (a) reveal(targetOf(a.getAttribute("href")));
+  });
+  window.addEventListener("hashchange", function () {
+    var el = reveal(targetOf(location.hash));
+    if (el) el.scrollIntoView();
+  });
+  if (location.hash) {
+    var first = reveal(targetOf(location.hash));
+    if (first) first.scrollIntoView();
+  }
+})();
+</script>
+
+</body></html>
