@@ -9,7 +9,7 @@
  * @brief Single GEneral Matrix Multiply
  *        C = alpha * A @ B + beta * C, row-major
  *        A: M x K, B: K x N, C: M x N
- *        One thread per element of C: x -> col, y -> row
+ *        One thread per element of C: x -> row, y -> col
  *
  * @param[in, out] C overwritten with the result
  */

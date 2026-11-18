@@ -45,7 +45,8 @@ inline torch::Tensor run_gemm(const char *op_name,
     constexpr int64_t kIntMax = std::numeric_limits<int>::max();
     TORCH_CHECK(M <= kIntMax && N <= kIntMax && K <= kIntMax,
                 "gemm.", op_name, ": M, N, K must fit in int");
-
+    TORCH_CHECK(M*K <= kIntMax && K*N <= kIntMax && M*N <= kIntMax,
+                "gemm.", op_name, ":tensor too large")
     const c10::cuda::CUDAGuard guard (A.device());
     torch::Tensor out = C.clone();
 
