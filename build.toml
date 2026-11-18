@@ -1,0 +1,21 @@
+[general]
+name = "gemm"
+version = 1
+edition = 6
+backends = ["cuda"]
+
+[torch]
+src = [
+    "torch_ext/torch_binding.cpp",
+    "torch_ext/torch_binding.h"
+]
+
+[kernel.gemm]
+language = "cpp-cuda"
+depends = ["torch"]
+src = [
+    "csrc/gemm/naive.cu",
+    "csrc/gemm/naive.cuh",
+    "torch_ext/ops.cu",
+]
+include = ["include", "csrc/gemm"]
