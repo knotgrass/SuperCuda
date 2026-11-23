@@ -91,6 +91,10 @@
     },
     // The Python extension expands ~ but not ${userHome}.
     "python.defaultInterpreterPath": "~/anaconda3/envs/cxx/bin/python",
+    // Pylance does not read pytest.ini. This is the same path as `pythonpath = torch_ext` there.
+    "python.analysis.extraPaths": [
+        "torch_ext"
+    ],
     "python.testing.pytestEnabled": true,
     "python.testing.unittestEnabled": false,
     "python.testing.pytestArgs": [
