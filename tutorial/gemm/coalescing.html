@@ -1,0 +1,958 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Đếm sector naive SGEMM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+/* Layout: bàn làm việc. Bảng tóm tắt ở trên, thanh điều khiển dính, (giải thích từng bước | canvas GEMM), dải sector bên dưới, ghi chú mở rộng ở cuối. */
+:root{
+  color-scheme: dark;
+  --bg:#0d1218;
+  --surface:#141b23;
+  --surface-2:#1a2430;
+  --cell:#1e2934;
+  --grid:#17212b;
+  --line:#3a4957;
+  --line-strong:#62758a;
+  --fg:#dce4ec;
+  --muted:#8e9cad;
+  --elem:#f4b64c;
+  --elem-ink:#1d1405;
+  --sector:rgba(244,182,76,.17);
+  --sector-edge:rgba(244,182,76,.78);
+  --lane:#70c7ff;
+  --lane-ink:#04131d;
+  --warp:#a98cff;
+  --good:#5ed49b;
+  --bad:#ff806f;
+  --font-display:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-body:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:15px;line-height:1.6}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 72px;display:flex;flex-direction:column;gap:24px}
+h1,h2,h3{font-family:var(--font-display);text-wrap:balance;margin:0;line-height:1.3}
+h1{font-size:clamp(24px,3.2vw,32px);font-weight:700;letter-spacing:-.01em}
+h2{font-size:17px;font-weight:600}
+p{margin:0}
+b{font-weight:600}
+.eyebrow{font-family:var(--font-mono);font-size:12px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px}
+.lead{max-width:72ch;margin-top:10px}
+code,pre{font-family:var(--font-mono)}
+code{font-size:.88em;background:var(--surface-2);padding:1px 5px;border-radius:4px}
+pre{margin:0;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.6;overflow-x:auto;white-space:pre;font-variant-numeric:tabular-nums}
+pre .ln{color:var(--muted);user-select:none}
+.hx{color:var(--lane)} .hy{color:var(--warp)}
+.hint{color:var(--muted);font-size:13px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px}
+.sechead{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 16px;margin-bottom:12px}
+.table-wrap{overflow-x:auto}
+
+/* bảng tóm tắt */
+table.sum{border-collapse:collapse;width:100%;min-width:600px;font-size:14px}
+table.sum th,table.sum td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+table.sum thead th{font-size:13px;font-weight:600}
+table.sum .sub{display:block;font-weight:400;color:var(--muted);font-size:12px;font-family:var(--font-body)}
+table.sum tbody th{font-weight:500;white-space:nowrap}
+table.sum tr.total th,table.sum tr.total td{border-bottom:0}
+.cellbtn{appearance:none;font:inherit;color:inherit;background:transparent;border:1px solid transparent;border-radius:8px;padding:6px 8px;width:100%;text-align:left;cursor:pointer;display:flex;align-items:baseline;gap:10px}
+.cellbtn:hover{background:var(--surface-2)}
+.cellbtn:focus-visible{outline:2px solid var(--lane);outline-offset:1px}
+.cellbtn[aria-current="true"]{border-color:var(--lane);background:var(--surface-2)}
+.num{font-family:var(--font-mono);font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;min-width:3.2ch}
+.num.good{color:var(--good)} .num.bad{color:var(--bad)}
+.why{color:var(--muted);font-size:13px}
+
+/* thanh điều khiển */
+.controls{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-wrap:wrap;gap:10px 20px;align-items:center}
+@media (max-width:640px){.controls{position:static}}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{appearance:none;font:inherit;font-size:14px;background:transparent;color:var(--muted);border:0;padding:6px 12px;cursor:pointer;display:flex;gap:6px;align-items:baseline}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--surface-2);color:var(--fg);box-shadow:inset 0 -2px 0 var(--lane)}
+.seg button:focus-visible{outline:2px solid var(--lane);outline-offset:-2px}
+.seg small{font-family:var(--font-mono);font-size:12px}
+.rng{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.rng output{font-family:var(--font-mono);color:var(--fg);min-width:2ch;text-align:right;font-variant-numeric:tabular-nums}
+.rng input{width:118px;accent-color:var(--lane)}
+.btn{appearance:none;font:inherit;font-size:13px;background:var(--surface-2);color:var(--fg);border:1px solid var(--line);border-radius:7px;padding:5px 11px;cursor:pointer}
+.btn:hover{border-color:var(--line-strong)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn:focus-visible{outline:2px solid var(--lane);outline-offset:1px}
+.btn[aria-pressed="true"]{border-color:var(--lane)}
+
+/* phần chính */
+.main{display:grid;grid-template-columns:minmax(0,400px) minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:1000px){.main{grid-template-columns:minmax(0,1fr)}}
+.steps{display:flex;flex-direction:column;gap:12px;min-width:0}
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tab{appearance:none;font:inherit;font-size:12.5px;background:transparent;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:3px 10px;cursor:pointer;display:inline-flex;gap:6px;align-items:baseline}
+.tab .n{font-family:var(--font-mono);font-size:11.5px}
+.tab:hover{color:var(--fg)}
+.tab[aria-current="step"]{color:var(--fg);border-color:var(--lane);background:var(--surface-2)}
+.tab:focus-visible{outline:2px solid var(--lane);outline-offset:1px}
+.stepcard{display:flex;flex-direction:column;gap:12px;min-width:0}
+.stephead{display:flex;flex-direction:column;gap:2px}
+.modetag{font-family:var(--font-mono);font-size:12px;color:var(--muted)}
+.stepbody{display:flex;flex-direction:column;gap:10px;min-width:0}
+.ex{font-size:14.5px}
+.tag{font-family:var(--font-mono);font-size:11px;color:var(--lane);text-transform:uppercase;letter-spacing:.06em;margin-right:8px}
+.rule{font-family:var(--font-mono);font-size:12.5px;padding:8px 10px;border:1px dashed var(--line-strong);border-radius:8px}
+.verdict{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;padding:8px 12px;border-radius:8px;background:var(--surface-2);font-size:14px}
+.verdict .big{font-family:var(--font-mono);font-size:22px;font-weight:700}
+.verdict.good .big{color:var(--good)} .verdict.bad .big{color:var(--bad)}
+.stepnav{display:flex;justify-content:space-between;gap:8px;padding-top:4px}
+
+.viz{display:flex;flex-direction:column;gap:12px;min-width:0}
+.canvas-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px}
+canvas{display:block;cursor:crosshair;touch-action:manipulation}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12.5px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px;flex:none}
+.sw-warp{background:var(--warp)} .sw-lane{background:var(--lane)} .sw-elem{background:var(--elem)}
+.sw-sec{background:var(--sector);outline:1px solid var(--sector-edge);outline-offset:-1px;width:26px}
+.sw-ln{background:linear-gradient(90deg,transparent 45%,var(--line-strong) 45%,var(--line-strong) 60%,transparent 60%),var(--cell);width:18px}
+.insp{display:flex;flex-direction:column;gap:8px;padding:14px 16px}
+.ihead{font-size:14px}
+
+/* dải chi tiết */
+.sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(176px,1fr));gap:8px}
+.sbox{border:1px solid var(--sector-edge);background:var(--sector);border-radius:8px;padding:7px 8px;display:flex;flex-direction:column;gap:5px;min-width:0}
+.sbox.plain{border-color:var(--line);background:var(--surface-2)}
+.sbox.plain.hl{border-color:var(--sector-edge);background:var(--sector)}
+.shead{display:flex;justify-content:space-between;gap:6px;font-family:var(--font-mono);font-size:11px;color:var(--muted)}
+.shead b{color:var(--fg);font-weight:600}
+.scells{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:2px}
+.sc{height:22px;border-radius:3px;background:var(--cell);font-family:var(--font-mono);font-size:10.5px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-variant-numeric:tabular-nums}
+.sc.hit{background:var(--elem);color:var(--elem-ink);font-weight:700}
+.sc.sel{background:var(--lane);color:var(--lane-ink)}
+.sfoot{font-family:var(--font-mono);font-size:11px;color:var(--muted)}
+.chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:6px}
+.chip{appearance:none;font:inherit;text-align:left;color:var(--fg);background:var(--surface-2);border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-family:var(--font-mono);font-size:11.5px;display:flex;flex-direction:column;cursor:pointer;line-height:1.45}
+.chip span{color:var(--muted)}
+.chip.sel{border-color:var(--lane);box-shadow:inset 0 0 0 1px var(--lane)}
+.chip:focus-visible{outline:2px solid var(--lane)}
+details.lanes{margin-top:14px}
+details.lanes summary{cursor:pointer;font-size:14px;font-weight:500;padding:4px 0}
+table.lt{border-collapse:collapse;font-family:var(--font-mono);font-size:12px;min-width:520px;margin-top:8px;font-variant-numeric:tabular-nums}
+table.lt th,table.lt td{padding:3px 12px;text-align:right;border-bottom:1px solid var(--grid)}
+table.lt th{color:var(--muted);font-weight:500}
+table.lt tr.b1 td{background:rgba(244,182,76,.07)}
+table.lt tr.sel td{background:rgba(112,199,255,.18);color:var(--fg)}
+.bars{display:flex;flex-direction:column;gap:16px;max-width:820px}
+.barrow .lab{font-size:14px;margin-bottom:6px}
+.bar{display:grid;grid-template-columns:52px minmax(0,1fr) 64px;gap:10px;align-items:center;font-family:var(--font-mono);font-size:12px;margin-top:4px}
+.bar .track{height:14px;background:var(--surface-2);border-radius:4px;overflow:hidden}
+.bar .fill{height:100%;border-radius:4px}
+.bar .fill.b{background:var(--good)} .bar .fill.a{background:var(--bad)}
+.bar .v{text-align:right;font-variant-numeric:tabular-nums}
+
+/* ghi chú */
+.notes{display:flex;flex-direction:column;gap:10px}
+details.note{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:0 16px}
+details.note summary{cursor:pointer;padding:12px 0;font-weight:600}
+details.note summary:focus-visible{outline:2px solid var(--lane);outline-offset:2px}
+details.note .nb{padding:0 0 16px;display:flex;flex-direction:column;gap:10px;max-width:84ch}
+details.note ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+
+/* phần trả lời câu hỏi */
+a{color:var(--lane);text-underline-offset:2px}
+.qa{display:flex;flex-direction:column;gap:18px}
+.q{font-size:14px;color:var(--muted);border:1px dashed var(--line-strong);border-radius:8px;padding:10px 12px;max-width:92ch}
+.qa-lead{font-size:16px;max-width:82ch}
+.qa-block{display:flex;flex-direction:column;gap:10px;min-width:0;padding-top:16px;border-top:1px solid var(--line)}
+.qa-block h3{font-size:16px;font-weight:600}
+.qa-block > p{max-width:86ch}
+.codepair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:820px){.codepair{grid-template-columns:minmax(0,1fr)}}
+.codepair figure{margin:0;display:flex;flex-direction:column;gap:6px;min-width:0}
+.codepair figcaption{font-size:12.5px;color:var(--muted)}
+.deltas{display:flex;flex-direction:column;gap:4px;max-width:640px}
+.delta{display:grid;grid-template-columns:22px 3ch 16px 3ch minmax(0,1fr);align-items:baseline;gap:8px;padding:5px 10px;border-radius:6px;background:var(--surface-2)}
+.delta .num{font-size:17px;min-width:0;text-align:right}
+.delta .m{font-family:var(--font-mono);font-weight:700}
+.delta .arr{color:var(--muted);text-align:center}
+details.sub{border:1px solid var(--line);border-radius:8px;padding:0 12px}
+details.sub summary{cursor:pointer;padding:8px 0;font-size:14px;font-weight:500}
+details.sub summary:focus-visible{outline:2px solid var(--lane);outline-offset:2px}
+details.sub .nb{padding:0 0 12px;display:flex;flex-direction:column;gap:8px}
+.perf{display:flex;flex-direction:column;gap:2px;max-width:660px}
+.perf .bar{grid-template-columns:112px minmax(0,1fr) 108px}
+
+.tip{position:fixed;z-index:20;pointer-events:none;background:var(--surface-2);border:1px solid var(--line-strong);border-radius:8px;padding:7px 10px;font-family:var(--font-mono);font-size:12px;line-height:1.5;white-space:pre;color:var(--fg);box-shadow:0 6px 24px rgba(0,0,0,.45)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">csrc/sgemm/naive.cu · L21–22 · L61</p>
+    <h1>Đếm sector trong naive SGEMM</h1>
+    <p class="lead">Một warp luôn gồm 32 thread có <code>threadIdx.x</code> liên tiếp. Code chỉ quyết định warp đó đi theo hàng hay theo cột của ma trận. Đi theo hàng: 32 lane đọc 32 float liền nhau, cần 4 sector. Đi theo cột: mỗi lane nằm trong một sector riêng, cần 32 sector.</p>
+  </header>
+
+  <section class="card qa" id="answer">
+    <p class="q"><span class="tag">Câu hỏi</span>Đổi vị trí tính <code>rowIdx</code> và <code>colIdx</code> ở L21–22, và đổi M, N ở L61, thì kernel thành naive kernel của siboehm đúng không? Lúc đó load memory theo <code>.y</code> nên bị chậm?</p>
+    <p class="qa-lead"><b>Đúng.</b> Sau khi đổi, kernel có cùng cách ánh xạ thread → phần tử C như kernel 1 (naive) của siboehm. Kernel đó chậm, nhưng lý do không phải là load theo <code>.y</code>. Lý do là mỗi warp đi dọc theo một cột của A và C.</p>
+
+    <div class="qa-block">
+      <h3>1. Code sau khi đổi khớp với siboehm kernel 1</h3>
+      <div class="codepair">
+        <figure>
+          <figcaption>SuperCuda, sau khi đổi</figcaption>
+<pre><span class="ln">L21</span> rowIdx = blockIdx.x * blockDim.x + <span class="hx">threadIdx.x</span>;
+<span class="ln">L22</span> colIdx = blockIdx.y * blockDim.y + <span class="hy">threadIdx.y</span>;
+<span class="ln">L40</span> c += alpha * (A[rowIdx * K + k] * B[k * N + colIdx]);
+<span class="ln">L60</span> dim3 block(BLOCK, BLOCK);   // BLOCK = 32
+<span class="ln">L61</span> dim3 grid(CEIL_DIV(M, BLOCK), CEIL_DIV(N, BLOCK));</pre>
+        </figure>
+        <figure>
+          <figcaption>siboehm kernel 1, <code>sgemm_naive</code></figcaption>
+<pre>const uint x = blockIdx.x * blockDim.x + <span class="hx">threadIdx.x</span>;
+const uint y = blockIdx.y * blockDim.y + <span class="hy">threadIdx.y</span>;
+tmp += A[x * K + i] * B[i * N + y];
+dim3 blockDim(32, 32, 1);
+dim3 gridDim(CEIL_DIV(M, 32), CEIL_DIV(N, 32), 1);</pre>
+        </figure>
+      </div>
+      <p>Hai bên khớp từng dòng: <code>x</code> là rowIdx, <code>y</code> là colIdx, <code>i</code> là k. Cả hai dùng block 32×32. Cả hai đặt grid.x theo M và grid.y theo N.</p>
+      <details class="sub">
+        <summary>Hai điểm khác nhau (không đổi cách truy cập bộ nhớ)</summary>
+        <div class="nb">
+          <p>siboehm nhân alpha một lần ở cuối: <code>C[x * N + y] = alpha * tmp + beta * C[x * N + y];</code>. SuperCuda nhân alpha vào từng số hạng: <code>c += alpha * (A[...] * B[...]);</code>. Kết quả chỉ lệch một chút do làm tròn số thực. Mỗi vòng k của SuperCuda có thêm một phép nhân.</p>
+          <p>siboehm đọc C sau vòng k. SuperCuda đọc C trước vòng k. Cả hai vẫn có 1 lệnh đọc C và 1 lệnh ghi C, nên số sector như nhau.</p>
+        </div>
+      </details>
+    </div>
+
+    <div class="qa-block">
+      <h3>2. Lý do chậm: warp đi dọc theo cột</h3>
+      <p>GPU gom 32 thread có <span class="hx">threadIdx.x</span> liên tiếp thành một warp. Với <code>block(32, 32)</code>, mọi thread trong một warp có cùng <span class="hy">threadIdx.y</span>. Vậy <code>.y</code> không đổi bên trong warp. Nó chỉ cho biết đây là warp nào.</p>
+      <p>Sau khi đổi, threadIdx.x đi vào row. 32 lane của warp có 32 row khác nhau và cùng một col. Hai row cạnh nhau cách nhau K float (trong A) hoặc N float (trong C). Khoảng cách này lớn hơn 32 byte, nên mỗi lane nằm trong một sector riêng.</p>
+      <div class="deltas" role="list" aria-label="Số sector mỗi lệnh, bản Trước và bản Sau">
+        <div class="delta" role="listitem"><span class="m">A</span><span class="num good">1</span><span class="arr">→</span><span class="num bad">32</span><span class="why">bị chậm: mỗi lane đọc một hàng khác nhau</span></div>
+        <div class="delta" role="listitem"><span class="m">C</span><span class="num good">4</span><span class="arr">→</span><span class="num bad">32</span><span class="why">bị chậm: mỗi lane đọc và ghi một hàng khác nhau</span></div>
+        <div class="delta" role="listitem"><span class="m">B</span><span class="num good">4</span><span class="arr">→</span><span class="num good">1</span><span class="why">không chậm: cả warp đọc cùng một địa chỉ (broadcast)</span></div>
+      </div>
+      <p class="hint">Số sector cho mỗi lệnh của một warp, bản Trước → bản Sau. Bảng bên dưới và 7 bước giải thích cho thấy cách đếm.</p>
+      <p>L1 cache giảm được một phần thiệt hại khi đọc A, vì sector đã nạp có thể dùng lại ở các vòng k sau. Tuy vậy, mỗi lệnh load vẫn cần 32 sector thay vì 1. Xem ghi chú <a href="#note-l1">L1 cache</a> ở cuối trang.</p>
+    </div>
+
+    <div class="qa-block">
+      <h3>3. Code hiện tại đã là kernel 2 của siboehm</h3>
+      <p>Kernel 2 (global memory coalescing) dùng block 1 chiều 1024 thread. Nó chỉ đổi hai dòng tính chỉ số (BLOCKSIZE = 32):</p>
+<pre>const int x = blockIdx.x * BLOCKSIZE + (threadIdx.x / BLOCKSIZE);
+const int y = blockIdx.y * BLOCKSIZE + (threadIdx.x % BLOCKSIZE);
+dim3 blockDim(32 * 32);</pre>
+      <p>Trong block 1 chiều, warp = threadIdx.x / 32 và lane = threadIdx.x % 32. Vậy x (hàng) giữ nguyên trong warp, còn y (cột) tăng theo lane. Code hiện tại có cùng cách ánh xạ: hàng theo <span class="hy">threadIdx.y</span>, cột theo <span class="hx">threadIdx.x</span>.</p>
+      <p>Blog đo trên RTX A6000 với ma trận 4092×4092:</p>
+      <div class="perf">
+        <div class="bar"><span>1 · naive</span><div class="track"><div class="fill a" style="width:15.6%"></div></div><span class="v">309,0 GFLOPS</span></div>
+        <div class="bar"><span>2 · coalescing</span><div class="track"><div class="fill b" style="width:100%"></div></div><span class="v">1986,5 GFLOPS</span></div>
+      </div>
+      <p>Kernel 2 nhanh hơn kernel 1 khoảng 6,4 lần (1986,5 / 309,0). So với cuBLAS, kernel 1 đạt 1,3 % và kernel 2 đạt 8,5 %.</p>
+      <p>Vậy thay đổi của bạn đưa code từ kernel 2 về kernel 1. Bạn có thể dùng thay đổi này để đo tác động của coalescing bằng ncu. Xem ghi chú <a href="#note-ncu">Kiểm tra bằng Nsight Compute</a> ở cuối trang.</p>
+      <p class="hint">Nguồn: <a href="https://siboehm.com/articles/22/CUDA-MMM" target="_blank" rel="noopener">siboehm.com/articles/22/CUDA-MMM</a></p>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="sechead">
+      <h2>Số sector cho một lệnh của một warp</h2>
+      <p class="hint">Ví dụ trên trang: block 32×32, M = N = 64, K = 48. Bấm một ô để mở bước giải thích.</p>
+    </div>
+    <div class="table-wrap">
+      <table class="sum">
+        <thead>
+          <tr>
+            <th>Truy cập</th>
+            <th>Trước · x → col<span class="sub">code hiện tại</span></th>
+            <th>Sau · x → row<span class="sub">giống siboehm kernel 1</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row"><code>A[rowIdx·K + k]</code><span class="sub">load, mỗi vòng k</span></th>
+            <td><button class="cellbtn" data-step="3" data-mode="before"><span class="num good">1</span><span class="why">32 lane đọc cùng một địa chỉ (broadcast)</span></button></td>
+            <td><button class="cellbtn" data-step="3" data-mode="after"><span class="num bad">32</span><span class="why">hai lane cạnh nhau cách nhau K·4 = 192 byte</span></button></td>
+          </tr>
+          <tr>
+            <th scope="row"><code>B[k·N + colIdx]</code><span class="sub">load, mỗi vòng k</span></th>
+            <td><button class="cellbtn" data-step="4" data-mode="before"><span class="num good">4</span><span class="why">32 float liền nhau = 128 byte</span></button></td>
+            <td><button class="cellbtn" data-step="4" data-mode="after"><span class="num good">1</span><span class="why">32 lane đọc cùng một địa chỉ (broadcast)</span></button></td>
+          </tr>
+          <tr>
+            <th scope="row"><code>C[rowIdx·N + colIdx]</code><span class="sub">1 lệnh đọc + 1 lệnh ghi</span></th>
+            <td><button class="cellbtn" data-step="5" data-mode="before"><span class="num good">4</span><span class="why">32 float liền nhau = 128 byte</span></button></td>
+            <td><button class="cellbtn" data-step="5" data-mode="after"><span class="num bad">32</span><span class="why">hai lane cạnh nhau cách nhau N·4 = 256 byte</span></button></td>
+          </tr>
+          <tr class="total">
+            <th scope="row">Cả kernel, một warp<span class="sub">K·(A + B) + đọc C + ghi C</span></th>
+            <td><button class="cellbtn" data-step="6" data-mode="before"><span class="num good">248</span><span class="why">5K + 8</span></button></td>
+            <td><button class="cellbtn" data-step="6" data-mode="after"><span class="num bad">1648</span><span class="why">33K + 64</span></button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="controls" id="controls">
+    <div class="seg" role="group" aria-label="Phiên bản code">
+      <button id="mBefore" type="button" aria-pressed="true">Trước <small>x → col</small></button>
+      <button id="mAfter" type="button" aria-pressed="false">Sau <small>x → row</small></button>
+    </div>
+    <label class="rng" for="wIn">warp (threadIdx.y) <output id="wOut">0</output><input type="range" id="wIn" min="0" max="31" value="0"></label>
+    <label class="rng" for="kIn">vòng k <output id="kOut">0</output><input type="range" id="kIn" min="0" max="47" value="0"></label>
+    <button class="btn" id="play" type="button" aria-pressed="false">Chạy vòng k</button>
+    <label class="rng" for="lIn">lane (threadIdx.x) <output id="lOut">0</output><input type="range" id="lIn" min="0" max="31" value="0"></label>
+  </div>
+
+  <section class="main">
+    <div class="steps">
+      <nav class="tabs" id="tabs" aria-label="Các bước giải thích"></nav>
+      <article class="card stepcard">
+        <div class="stephead">
+          <h2 id="stepTitle"></h2>
+          <span class="modetag" id="stepMode"></span>
+        </div>
+        <div id="stepBody" class="stepbody"></div>
+        <div class="stepnav">
+          <button class="btn" id="prev" type="button">← Bước trước</button>
+          <button class="btn" id="next" type="button">Bước sau →</button>
+        </div>
+      </article>
+    </div>
+    <div class="viz">
+      <div class="canvas-wrap" id="cwrap">
+        <canvas id="cv" role="img" aria-label="Sơ đồ GEMM: lưới thread 32×32 của block, ma trận A, B, C. Ô và sector mà warp đang xét truy cập được tô màu."></canvas>
+      </div>
+      <div class="legend">
+        <span><i class="sw sw-warp"></i>warp đang xét và phần tử C của nó</span>
+        <span><i class="sw sw-lane"></i>lane đang chọn</span>
+        <span><i class="sw sw-elem"></i>ô mà lệnh đọc hoặc ghi</span>
+        <span><i class="sw sw-sec"></i>sector L1 phải xử lý (8 float = 32 byte)</span>
+        <span><i class="sw sw-ln"></i>vạch mảnh: biên sector · vạch đậm: biên block 32</span>
+      </div>
+      <div class="card insp" id="insp"></div>
+    </div>
+  </section>
+
+  <section class="card" id="detail"></section>
+
+  <section class="notes">
+    <h2>Chi tiết thêm</h2>
+
+    <details class="note">
+      <summary>Giả định để đếm ra đúng 1 / 4 / 32</summary>
+      <div class="nb">
+        <ul>
+          <li>Con trỏ A, B, C bắt đầu ở địa chỉ chia hết cho 256 byte. <code>cudaMalloc</code> và bộ cấp phát của PyTorch cho địa chỉ như vậy. Một view có offset lệch có thể phá giả định này.</li>
+          <li>Số cột chia hết cho 8 (ở đây N = 64, K = 48). Khi đó mỗi hàng bắt đầu ở biên sector.<br>
+            <span class="hint">Ví dụ ngược: N = 100. Hàng 1 của B bắt đầu ở chỉ số 100, tức byte 400. 400 không chia hết cho 32. Vậy 32 float liền nhau nằm trên 5 sector thay vì 4.</span></li>
+          <li>Hai lane cạnh nhau cách nhau ít nhất 32 byte, tức K ≥ 8 (với A) và N ≥ 8 (với C).<br>
+            <span class="hint">Ví dụ ngược: K = 4. Bước nhảy là 16 byte. Hai lane nằm chung một sector, nên lệnh load A cần 16 sector thay vì 32.</span></li>
+          <li>Warp nằm trọn trong ma trận. Ở block biên, lane có rowIdx ≥ M hoặc colIdx ≥ N bỏ qua lệnh load. Số sector giảm theo số lane còn chạy.</li>
+        </ul>
+      </div>
+    </details>
+
+    <details class="note" id="note-l1">
+      <summary>L1 cache có bù được cho bản Sau không?</summary>
+      <div class="nb">
+        <p>Bù được một phần lưu lượng, nhưng không giảm số sector mỗi lệnh.</p>
+        <ul>
+          <li>Số sector trên trang này là số sector L1 phải xử lý cho mỗi lệnh. Con số này không phụ thuộc vào việc sector đã nằm sẵn trong L1 hay chưa.</li>
+          <li>Bản Sau: lane i đọc A[i·K + k] ở vòng k, rồi A[i·K + k + 1] ở vòng k + 1. Hai chỉ số này thường nằm cùng sector. Nếu sector còn trong L1, khoảng 7 trên 8 vòng trúng L1. Lưu lượng từ L2 lên L1 cho A giảm khoảng 8 lần.</li>
+          <li>32 warp của block đọc cùng 32 sector A này, vì chúng chỉ khác nhau ở cột C. Vậy L1 còn được dùng lại giữa các warp.</li>
+          <li>Dù trúng L1, một lệnh cần 32 sector vẫn tốn nhiều lượt xử lý của L1 hơn một lệnh cần 4 sector. Nsight Compute gọi mỗi lượt xử lý là một wavefront.</li>
+          <li>Lệnh ghi C đi xuống L2. Mỗi sector chỉ có 4 byte được ghi, nên L2 nhận 32 lần ghi nhỏ thay vì 4 lần ghi đầy sector.</li>
+        </ul>
+      </div>
+    </details>
+
+    <details class="note" id="note-ncu">
+      <summary>Kiểm tra bằng Nsight Compute (ncu)</summary>
+      <div class="nb">
+        <p>Build bản release (<code>-O3 -lineinfo</code>, không dùng <code>-G</code>). Sau đó đo hai metric sau cho từng phiên bản:</p>
+<pre>ncu --metrics \
+l1tex__t_requests_pipe_lsu_mem_global_op_ld.sum,\
+l1tex__t_sectors_pipe_lsu_mem_global_op_ld.sum,\
+l1tex__t_sectors_pipe_lsu_mem_global_op_st.sum \
+  &lt;chương trình&gt;</pre>
+        <ul>
+          <li><code>requests</code>: số lệnh load của tất cả warp. <code>sectors</code>: tổng số sector mà các lệnh đó cần.</li>
+          <li>Tỷ lệ sectors / requests cho load (ước tính, bỏ qua lệnh đọc C): Trước ≈ (1 + 4) / 2 = 2,5. Sau ≈ (32 + 1) / 2 = 16,5.</li>
+          <li>Store C: Trước ≈ 4 sector mỗi request. Sau ≈ 32.</li>
+          <li>Phần Source Counters của ncu cũng đánh dấu dòng code có truy cập không gộp (uncoalesced).</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+</div>
+<div id="tip" class="tip" hidden></div>
+
+<script>
+(() => {
+"use strict";
+const M = 64, N = 64, K = 48;
+const DIM = { A:{ rows:M, cols:K, dims:'M×K' }, B:{ rows:K, cols:N, dims:'K×N' }, C:{ rows:M, cols:N, dims:'M×N' } };
+const state = { mode:'before', step:0, w:0, k:0, lane:0 };
+let timer = null;
+let laneTableOpen = false;
+
+const STEPS = [
+  { key:'warp', tab:'Warp',       title:'Warp là một hàng ngang của block' },
+  { key:'map',  tab:'Thread → C', title:'Warp tính phần tử nào của C' },
+  { key:'mem',  tab:'Sector',     title:'Row-major và sector' },
+  { key:'A',    tab:'Load A',     title:'Load A[rowIdx·K + k]' },
+  { key:'B',    tab:'Load B',     title:'Load B[k·N + colIdx]' },
+  { key:'C',    tab:'Đọc/ghi C',  title:'Đọc và ghi C[rowIdx·N + colIdx]' },
+  { key:'sum',  tab:'Tổng kết',   title:'Tổng số sector của một warp' },
+];
+
+const $ = id => document.getElementById(id);
+const pct = v => (Math.round(v * 1000) / 10).toString().replace('.', ',') + ' %';
+
+/* ---------- mô hình ---------- */
+function rc(mode, lane, w) { return mode === 'before' ? { row:w, col:lane } : { row:lane, col:w }; }
+function idxOf(mat, mode, lane, w, k) {
+  const p = rc(mode, lane, w);
+  if (mat === 'A') return p.row * K + k;
+  if (mat === 'B') return k * N + p.col;
+  return p.row * N + p.col;
+}
+function laneIdx(mat, mode) {
+  const md = mode || state.mode, out = [];
+  for (let i = 0; i < 32; i++) out.push(idxOf(mat, md, i, state.w, state.k));
+  return out;
+}
+function groupSectors(idxs) {
+  const m = new Map();
+  idxs.forEach((idx, lane) => {
+    const s = idx >> 3;
+    if (!m.has(s)) m.set(s, new Map());
+    const g = m.get(s);
+    if (!g.has(idx)) g.set(idx, []);
+    g.get(idx).push(lane);
+  });
+  return new Map([...m.entries()].sort((a, b) => a[0] - b[0]));
+}
+function laneRange(l) { return l.length === 1 ? String(l[0]) : l[0] + '–' + l[l.length - 1]; }
+function sectorLines(mat) {
+  const g = groupSectors(laneIdx(mat));
+  const lines = [];
+  for (const [s, m] of g) {
+    const idxs = [...m.keys()].sort((a, b) => a - b);
+    const lanes = [...m.values()].flat().sort((a, b) => a - b);
+    const ir = idxs.length > 1 ? idxs[0] + '–' + idxs[idxs.length - 1] : String(idxs[0]);
+    lines.push('lane ' + laneRange(lanes).padEnd(5) + ' → chỉ số ' + ir.padEnd(9) + ' → sector ' + s);
+  }
+  if (lines.length > 6) return [...lines.slice(0, 3), '…', lines[lines.length - 1]].join('\n');
+  return lines.join('\n');
+}
+function verdict(n, what) {
+  return '<div class="verdict ' + (n >= 32 ? 'bad' : 'good') + '"><span class="big">' + n + '</span><span>' + what + '</span></div>';
+}
+
+/* ---------- nội dung từng bước ---------- */
+const HX = '<span class="hx">threadIdx.x</span>', HY = '<span class="hy">threadIdx.y</span>';
+const CODE_BEFORE =
+  '<span class="ln">L21</span> rowIdx = blockIdx.y * blockDim.y + ' + HY + ';\n' +
+  '<span class="ln">L22</span> colIdx = blockIdx.x * blockDim.x + ' + HX + ';\n' +
+  '<span class="ln">L61</span> dim3 grid(CEIL_DIV(N, BLOCK), CEIL_DIV(M, BLOCK));';
+const CODE_AFTER =
+  '<span class="ln">L21</span> rowIdx = blockIdx.x * blockDim.x + ' + HX + ';\n' +
+  '<span class="ln">L22</span> colIdx = blockIdx.y * blockDim.y + ' + HY + ';\n' +
+  '<span class="ln">L61</span> dim3 grid(CEIL_DIV(M, BLOCK), CEIL_DIV(N, BLOCK));';
+
+function stepHTML() {
+  const { mode, w, k, lane } = state;
+  const before = mode === 'before';
+  switch (STEPS[state.step].key) {
+    case 'warp': {
+      const tid = w * 32 + lane;
+      return `
+<p>GPU chạy thread theo nhóm 32 thread, gọi là <b>warp</b>. 32 thread trong một warp chạy cùng một lệnh tại cùng một thời điểm. Vị trí của một thread trong warp gọi là <b>lane</b> (0 đến 31).</p>
+<p>GPU xếp thread vào warp theo số thứ tự tuyến tính <code>tid</code>:</p>
+<pre>tid  = threadIdx.y × blockDim.x + threadIdx.x
+warp = tid / 32      (chia lấy phần nguyên)
+lane = tid % 32</pre>
+<p>Block có <code>blockDim.x = 32</code>. Thay vào công thức, ta được:</p>
+<pre>warp = ${HY}
+lane = ${HX}</pre>
+<p class="ex"><span class="tag">Ví dụ</span>Thread (x ${lane}, y ${w}): tid = ${w}·32 + ${lane} = ${tid}. Vậy thread này là lane ${lane} của warp ${w}.</p>
+<p>Phần cứng quyết định cách chia này. Hai phiên bản giống nhau ở bước này. Trên hình, hàng tím trong lưới thread là warp ${w}.</p>`;
+    }
+    case 'map': {
+      const lines = before
+        ? `rowIdx = 0 + ${HY} = ${String(w).padEnd(4)} giống nhau ở 32 lane\ncolIdx = 0 + ${HX} = lane 0, 1, …, 31`
+        : `rowIdx = 0 + ${HX} = lane 0, 1, …, 31\ncolIdx = 0 + ${HY} = ${String(w).padEnd(4)} giống nhau ở 32 lane`;
+      const concl = before
+        ? `<p>Warp tính 32 phần tử <b>nằm trên một hàng</b> của C (hàng ${w}). Warp nằm ngang trong lưới thread, và nhóm phần tử C cũng nằm ngang.</p>`
+        : `<p>Warp tính 32 phần tử <b>nằm trên một cột</b> của C (cột ${w}). Warp vẫn nằm ngang trong lưới thread, nhưng nhóm phần tử C nằm dọc.</p>
+<p>L61 đổi theo: <code>grid.x</code> bây giờ đếm block theo M (hàng), <code>grid.y</code> đếm block theo N (cột).</p>`;
+      return `
+<p>Code quyết định thread nào tính phần tử nào của C. Màu xanh là ${HX} (lane). Màu tím là ${HY} (warp).</p>
+<pre>${before ? CODE_BEFORE : CODE_AFTER}</pre>
+<p>Hình dùng block (0, 0), nên blockIdx.x = blockIdx.y = 0. Trong warp ${w}, mọi lane có threadIdx.y = ${w}.</p>
+<pre>${lines}</pre>
+${concl}`;
+    }
+    case 'mem':
+      return `
+<p>Ma trận lưu theo <b>row-major</b>: phần tử [r][c] nằm ở chỉ số r × (số cột) + c. Hàng r nằm ngay sau hàng r − 1 trong bộ nhớ.</p>
+<p>L1 không đọc từng float riêng lẻ. L1 đọc theo <b>sector</b>: một đoạn 32 byte liền nhau, bắt đầu ở địa chỉ chia hết cho 32. Một float có 4 byte, nên một sector chứa 8 float.</p>
+<pre>byte   = chỉ số × 4
+sector = byte / 32 = chỉ số / 8   (chia lấy phần nguyên)</pre>
+<p>Số cột của A (K = 48), B và C (N = 64) đều chia hết cho 8. Vậy mỗi hàng chia đúng thành các sector 8 ô. Trên hình, vạch dọc mảnh là biên sector.</p>
+<p class="ex"><span class="tag">Ví dụ</span>A[2][13]: chỉ số = 2·48 + 13 = 109. Byte = 109·4 = 436. Sector = 109 / 8 = 13.</p>
+<p>Khi warp chạy một lệnh load, L1 gom địa chỉ của 32 lane. L1 xử lý mỗi sector khác nhau một lần. Vậy:</p>
+<div class="rule">số sector của một lệnh = số giá trị khác nhau của (chỉ số / 8) trong 32 lane</div>`;
+    case 'A': {
+      const head = `<pre><span class="ln">L40</span> c += alpha * (A[rowIdx * K + k] * B[k * N + colIdx]);</pre>`;
+      if (before) return head + `
+<p>Vòng k = ${k}. Mọi lane có rowIdx = ${w}, nên mọi lane có cùng chỉ số:</p>
+<pre>chỉ số = rowIdx·K + k = ${w}·48 + ${k} = ${w * K + k}
+${sectorLines('A')}</pre>
+<p>32 lane đọc <b>cùng một địa chỉ</b>. L1 xử lý 1 sector và gửi cùng giá trị cho 32 lane. Cách này gọi là <b>broadcast</b>.</p>
+${verdict(1, 'sector cho mỗi lệnh load A')}`;
+      return head + `
+<p>Vòng k = ${k}. rowIdx = lane, nên mỗi lane có chỉ số riêng:</p>
+<pre>chỉ số = rowIdx·K + k = lane·48 + ${k}
+${sectorLines('A')}</pre>
+<p>Hai lane cạnh nhau cách nhau K = 48 float, tức 192 byte. Một sector chỉ dài 32 byte. Vậy không có hai lane nào nằm chung sector.</p>
+${verdict(32, 'sector cho mỗi lệnh load A')}
+<p>L1 xử lý 32 × 32 = 1024 byte. Warp chỉ dùng 32 × 4 = 128 byte trong đó (12,5 %).</p>`;
+    }
+    case 'B': {
+      const head = `<pre><span class="ln">L40</span> c += alpha * (A[rowIdx * K + k] * B[k * N + colIdx]);</pre>`;
+      if (before) return head + `
+<p>Vòng k = ${k}. colIdx = lane, nên 32 lane đọc 32 chỉ số liền nhau:</p>
+<pre>chỉ số = k·N + colIdx = ${k}·64 + lane
+${sectorLines('B')}</pre>
+<p>32 float liền nhau = 128 byte. Chỉ số đầu tiên (${k * N}) chia hết cho 8, nên đoạn này bắt đầu đúng ở biên sector. 128 / 32 = 4 sector. Mỗi sector phục vụ 8 lane.</p>
+${verdict(4, 'sector cho mỗi lệnh load B, dùng hết 100 % byte')}`;
+      return head + `
+<p>Vòng k = ${k}. Mọi lane có colIdx = ${w}, nên mọi lane có cùng chỉ số:</p>
+<pre>chỉ số = k·N + colIdx = ${k}·64 + ${w} = ${k * N + w}
+${sectorLines('B')}</pre>
+<p>32 lane đọc cùng một địa chỉ, nên L1 dùng broadcast.</p>
+${verdict(1, 'sector cho mỗi lệnh load B')}
+<p>Load B rẻ hơn bản Trước (1 sector thay vì 4). Nhưng load A tăng từ 1 lên 32 sector, nên tổng vẫn tăng.</p>`;
+    }
+    case 'C': {
+      const head = `<pre><span class="ln">L37</span> float c = beta * C[rowIdx * N + colIdx];
+<span class="ln">L43</span> C[rowIdx * N + colIdx] = c;</pre>
+<p>Kernel đọc C một lần trước vòng k và ghi C một lần sau vòng k. Hai lệnh dùng cùng chỉ số, nên có cùng số sector.</p>`;
+      if (before) return head + `
+<pre>chỉ số = rowIdx·N + colIdx = ${w}·64 + lane
+${sectorLines('C')}</pre>
+<p>32 float liền nhau, bắt đầu ở biên sector, nên cần 128 / 32 = 4 sector.</p>
+${verdict(4, 'sector cho lệnh đọc, và 4 sector cho lệnh ghi')}`;
+      return head + `
+<pre>chỉ số = rowIdx·N + colIdx = lane·64 + ${w}
+${sectorLines('C')}</pre>
+<p>Hai lane cạnh nhau cách nhau N = 64 float, tức 256 byte. 256 lớn hơn 32, nên mỗi lane nằm trong một sector riêng.</p>
+${verdict(32, 'sector cho lệnh đọc, và 32 sector cho lệnh ghi')}
+<p>Mỗi sector chỉ có 4 byte được đọc hoặc ghi.</p>`;
+    }
+    case 'sum':
+      return `
+<p>Đếm cho một warp trong cả kernel. Vòng k chạy K lần. Mỗi vòng có 1 lệnh load A và 1 lệnh load B. Ngoài vòng có 1 lệnh đọc C và 1 lệnh ghi C.</p>
+<pre>Trước: K·(1 + 4)  + (4 + 4)   = 5K + 8
+Sau:   K·(32 + 1) + (32 + 32) = 33K + 64</pre>
+<p>Thay K = 48:</p>
+<pre>Trước: 5·48 + 8   = 248 sector
+Sau:   33·48 + 64 = 1648 sector</pre>
+<p>Bản Sau cần 1648 / 248 ≈ 6,6 lần số sector. Khi K lớn, tỷ lệ tiến tới 33 / 5 = 6,6.</p>
+<p>Cả hai bản cần cùng một lượng dữ liệu. Mỗi vòng k, warp cần 1 float + 32 float = 132 byte. Bản Trước xử lý 160 byte để lấy 132 byte đó. Bản Sau xử lý 1056 byte.</p>
+<p>Phần lớn chênh lệch đến từ A: 1 sector tăng lên 32 sector mỗi vòng. B giảm từ 4 xuống 1, nhưng không bù được.</p>`;
+  }
+  return '';
+}
+
+/* ---------- canvas ---------- */
+const cv = $('cv'), ctx = cv.getContext('2d'), cwrap = $('cwrap');
+let G = null, P = {}, lastW = -1;
+const FONT = {
+  name: '700 13px "Be Vietnam Pro", system-ui, sans-serif',
+  lab:  '600 12px "Be Vietnam Pro", system-ui, sans-serif',
+  mono: '500 11px "JetBrains Mono", ui-monospace, monospace',
+  badge:'700 11.5px "JetBrains Mono", ui-monospace, monospace',
+};
+function readColors() {
+  const s = getComputedStyle(document.documentElement), g = n => s.getPropertyValue(n).trim();
+  P = { cell:g('--cell'), grid:g('--grid'), line:g('--line'), strong:g('--line-strong'), fg:g('--fg'), muted:g('--muted'),
+        elem:g('--elem'), sector:g('--sector'), sectorEdge:g('--sector-edge'), lane:g('--lane'), warp:g('--warp'),
+        good:g('--good'), bad:g('--bad') };
+}
+function layout() {
+  const cs0 = getComputedStyle(cwrap);
+  const avail = cwrap.clientWidth - parseFloat(cs0.paddingLeft) - parseFloat(cs0.paddingRight);
+  const LM = 30, TM = 30, GAP = 20, RM = 6, BM = 44;
+  let cs = Math.floor((avail - LM - GAP - RM) / (K + N));
+  cs = Math.max(3, Math.min(7, cs));
+  const q = K * cs;
+  const W = LM + q + GAP + N * cs + RM, H = TM + q + GAP + M * cs + BM;
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const tcs = Math.max(3, Math.floor((q - 30) / 32));
+  G = { cs, W, H, LM, TM,
+    A:{ key:'A', x:LM, y:TM + q + GAP, rows:M, cols:K, tileR:true, tileC:false },
+    B:{ key:'B', x:LM + q + GAP, y:TM, rows:K, cols:N, tileR:false, tileC:true },
+    C:{ key:'C', x:LM + q + GAP, y:TM + q + GAP, rows:M, cols:N, tileR:true, tileC:true },
+    T:{ x:LM + q - 32 * tcs - 4, y:TM + q - 32 * tcs - 4, cs:tcs } };
+}
+function txt(t, x, y, color, font, align, base) {
+  ctx.font = font; ctx.fillStyle = color; ctx.textAlign = align || 'left'; ctx.textBaseline = base || 'alphabetic';
+  ctx.fillText(t, x, y); return ctx.measureText(t).width;
+}
+function drawBase(m, alpha) {
+  const cs = G.cs, w = m.cols * cs, h = m.rows * cs;
+  ctx.save(); ctx.globalAlpha = alpha; ctx.lineWidth = 1;
+  ctx.fillStyle = P.cell; ctx.fillRect(m.x, m.y, w, h);
+  if (cs >= 5) {
+    ctx.strokeStyle = P.grid; ctx.beginPath();
+    for (let r = 1; r < m.rows; r++) { const y = m.y + r * cs + .5; ctx.moveTo(m.x, y); ctx.lineTo(m.x + w, y); }
+    for (let c = 1; c < m.cols; c++) { if (c % 8 === 0) continue; const x = m.x + c * cs + .5; ctx.moveTo(x, m.y); ctx.lineTo(x, m.y + h); }
+    ctx.stroke();
+  }
+  ctx.strokeStyle = P.line; ctx.beginPath();
+  for (let c = 8; c < m.cols; c += 8) { if (m.tileC && c % 32 === 0) continue; const x = m.x + c * cs + .5; ctx.moveTo(x, m.y); ctx.lineTo(x, m.y + h); }
+  ctx.stroke();
+  ctx.strokeStyle = P.strong; ctx.beginPath();
+  if (m.tileC) for (let c = 32; c < m.cols; c += 32) { const x = m.x + c * cs + .5; ctx.moveTo(x, m.y); ctx.lineTo(x, m.y + h); }
+  if (m.tileR) for (let r = 32; r < m.rows; r += 32) { const y = m.y + r * cs + .5; ctx.moveTo(m.x, y); ctx.lineTo(m.x + w, y); }
+  ctx.stroke();
+  ctx.strokeRect(m.x + .5, m.y + .5, w - 1, h - 1);
+  ctx.restore();
+}
+function fillCell(m, r, c, color) {
+  const cs = G.cs, i = cs >= 5 ? 1 : 0;
+  ctx.fillStyle = color; ctx.fillRect(m.x + c * cs + i, m.y + r * cs + i, cs - 2 * i, cs - 2 * i);
+}
+function drawSectorRect(m, s) {
+  const cs = G.cs, i0 = s * 8, r = Math.floor(i0 / m.cols), c0 = i0 % m.cols;
+  ctx.fillStyle = P.sector; ctx.fillRect(m.x + c0 * cs, m.y + r * cs, 8 * cs, cs);
+  ctx.strokeStyle = P.sectorEdge; ctx.lineWidth = 1;
+  ctx.strokeRect(m.x + c0 * cs + .5, m.y + r * cs + .5, 8 * cs - 1, cs - 1);
+}
+function drawAccess(mat) {
+  const m = G[mat], idxs = laneIdx(mat), groups = groupSectors(idxs), sel = idxs[state.lane];
+  for (const s of groups.keys()) drawSectorRect(m, s);
+  for (const g of groups.values()) for (const idx of g.keys())
+    fillCell(m, Math.floor(idx / m.cols), idx % m.cols, idx === sel ? P.lane : P.elem);
+}
+function warpStripRect() {
+  const m = G.C, cs = G.cs;
+  return state.mode === 'before'
+    ? [m.x, m.y + state.w * cs, 32 * cs, cs]
+    : [m.x + state.w * cs, m.y, cs, 32 * cs];
+}
+function drawWarpC(fill) {
+  const m = G.C;
+  if (fill) for (let i = 0; i < 32; i++) { const p = rc(state.mode, i, state.w); fillCell(m, p.row, p.col, i === state.lane ? P.lane : P.warp); }
+  const [x, y, w, h] = warpStripRect();
+  ctx.save(); ctx.strokeStyle = P.warp; ctx.lineWidth = 1.5; ctx.strokeRect(x - .75, y - .75, w + 1.5, h + 1.5); ctx.restore();
+}
+function drawThreads(alpha) {
+  const T = G.T, s = T.cs, i = s >= 5 ? 1 : 0;
+  ctx.save(); ctx.globalAlpha = alpha;
+  for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
+    ctx.fillStyle = y === state.w ? (x === state.lane ? P.lane : P.warp) : P.cell;
+    ctx.fillRect(T.x + x * s, T.y + y * s, s - i, s - i);
+  }
+  txt('threadIdx.x →', T.x, T.y - 7, P.muted, FONT.mono);
+  ctx.save(); ctx.translate(T.x - 9, T.y); ctx.rotate(Math.PI / 2);
+  txt('threadIdx.y →', 0, 0, P.muted, FONT.mono, 'left', 'middle'); ctx.restore();
+  ctx.restore();
+}
+function tri(x, y, dir, color) {
+  ctx.fillStyle = color; ctx.beginPath();
+  if (dir === 'down') { ctx.moveTo(x - 4, y - 7); ctx.lineTo(x + 4, y - 7); ctx.lineTo(x, y); }
+  else { ctx.moveTo(x - 7, y - 4); ctx.lineTo(x - 7, y + 4); ctx.lineTo(x, y); }
+  ctx.closePath(); ctx.fill();
+}
+function matLabel(key, x, y, alpha) {
+  ctx.save(); ctx.globalAlpha = Math.max(alpha, .6);
+  const w = txt(key, x, y, P.fg, FONT.name);
+  txt(DIM[key].dims + ' = ' + DIM[key].rows + '×' + DIM[key].cols, x + w + 8, y, P.muted, FONT.mono);
+  ctx.restore();
+}
+function badge(key, x, y, align) {
+  const n = groupSectors(laneIdx(key)).size;
+  txt(n + ' sector / lệnh', x, y, n >= 32 ? P.bad : P.good, FONT.badge, align);
+}
+function activeAccess() {
+  const key = STEPS[state.step].key;
+  if (key === 'sum') return ['A', 'B', 'C'];
+  return ['A', 'B', 'C'].includes(key) ? [key] : [];
+}
+function draw() {
+  if (!G) return;
+  ctx.clearRect(0, 0, G.W, G.H);
+  const key = STEPS[state.step].key, cs = G.cs;
+  const focus = { warp:['T'], map:['T','C'], mem:['A','B','C'], A:['T','A'], B:['T','B'], C:['T','C'], sum:['T','A','B','C'] }[key];
+  const al = k => focus.includes(k) ? 1 : 0.3;
+
+  txt('Block (0, 0) · 32×32 thread', G.LM, G.TM - 12, P.fg, FONT.lab);
+  drawThreads(key === 'mem' ? 0.3 : 1);
+  for (const mk of ['A', 'B', 'C']) drawBase(G[mk], al(mk));
+
+  // block (0,0) trong C
+  ctx.save(); ctx.globalAlpha = al('C'); ctx.setLineDash([4, 3]); ctx.strokeStyle = P.fg; ctx.lineWidth = 1;
+  ctx.strokeRect(G.C.x + .5, G.C.y + .5, 32 * cs - 1, 32 * cs - 1); ctx.restore();
+
+  if (key === 'map') drawWarpC(true);
+  if (key === 'mem') {
+    ctx.save(); ctx.setLineDash([3, 3]); ctx.strokeStyle = P.lane; ctx.lineWidth = 1;
+    ctx.strokeRect(G.A.x - .5, G.A.y - .5, K * cs + 1, 3 * cs + 1); ctx.restore();
+    drawSectorRect(G.A, 13); fillCell(G.A, 2, 13, P.elem);
+  }
+  const acc = activeAccess();
+  for (const mk of acc) drawAccess(mk);
+  if (key === 'A' || key === 'B') drawWarpC(false);
+
+  if (key === 'A' || key === 'B' || key === 'sum') {
+    const kx = G.A.x + (state.k + .5) * cs, ky = G.B.y + (state.k + .5) * cs;
+    tri(kx, G.A.y - 3, 'down', P.fg); txt('k', kx + 6, G.A.y - 4, P.muted, FONT.mono);
+    tri(G.B.x - 3, ky, 'right', P.fg); txt('k', G.B.x - 12, ky - 6, P.muted, FONT.mono, 'center');
+  }
+
+  matLabel('B', G.B.x, G.TM - 12, al('B'));
+  matLabel('A', G.A.x, G.A.y + M * cs + 18, al('A'));
+  matLabel('C', G.C.x, G.C.y + M * cs + 18, al('C'));
+  if (acc.includes('B')) badge('B', G.B.x + N * cs, G.TM - 12, 'right');
+  if (acc.includes('A')) badge('A', G.A.x, G.A.y + M * cs + 35);
+  if (acc.includes('C')) badge('C', G.C.x, G.C.y + M * cs + 35);
+  if (key === 'map') txt('nét đứt = phần C của block (0, 0)', G.C.x, G.C.y + M * cs + 35, P.muted, FONT.mono);
+  if (key === 'mem') txt('nét đứt = 3 hàng đầu (xem dải bên dưới)', G.A.x, G.A.y + M * cs + 35, P.muted, FONT.mono);
+}
+
+/* ---------- tooltip và click trên canvas ---------- */
+function hit(x, y) {
+  if (!G) return null;
+  const cs = G.cs;
+  for (const key of ['A', 'B', 'C']) {
+    const m = G[key];
+    if (x >= m.x && x < m.x + m.cols * cs && y >= m.y && y < m.y + m.rows * cs)
+      return { kind:key, r:Math.floor((y - m.y) / cs), c:Math.floor((x - m.x) / cs) };
+  }
+  const T = G.T;
+  if (x >= T.x && x < T.x + 32 * T.cs && y >= T.y && y < T.y + 32 * T.cs)
+    return { kind:'T', tx:Math.floor((x - T.x) / T.cs), ty:Math.floor((y - T.y) / T.cs) };
+  return null;
+}
+function lanesTouching(mat, idx) {
+  return laneIdx(mat).map((v, i) => v === idx ? i : -1).filter(i => i >= 0);
+}
+function threadForC(r, c) { return state.mode === 'before' ? { x:c, y:r } : { x:r, y:c }; }
+function tipText(h) {
+  if (h.kind === 'T') return `thread (x ${h.tx}, y ${h.ty})\ntid = ${h.ty}·32 + ${h.tx} = ${h.ty * 32 + h.tx}\nwarp ${h.ty} · lane ${h.tx}`;
+  const cols = DIM[h.kind].cols, idx = h.r * cols + h.c;
+  let t = `${h.kind}[${h.r}][${h.c}]\nchỉ số = ${h.r}·${cols} + ${h.c} = ${idx}\nbyte ${idx * 4} · sector ${idx >> 3}`;
+  if (activeAccess().includes(h.kind)) {
+    const l = lanesTouching(h.kind, idx);
+    if (l.length) t += `\nwarp ${state.w}, lane ${laneRange(l)} truy cập ô này`;
+  }
+  if (h.kind === 'C') {
+    if (h.r < 32 && h.c < 32) { const th = threadForC(h.r, h.c); t += `\ntính bởi thread (x ${th.x}, y ${th.y})\n= warp ${th.y}, lane ${th.x}`; }
+    else t += '\nthuộc block khác';
+  }
+  return t;
+}
+const tip = $('tip');
+function pos(e) { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+cv.addEventListener('pointermove', e => {
+  const [x, y] = pos(e), h = hit(x, y);
+  if (!h) { tip.hidden = true; return; }
+  tip.textContent = tipText(h); tip.hidden = false;
+  const tw = tip.offsetWidth, th = tip.offsetHeight;
+  let left = e.clientX + 14, top = e.clientY + 14;
+  if (left + tw > window.innerWidth - 8) left = e.clientX - tw - 14;
+  if (top + th > window.innerHeight - 8) top = e.clientY - th - 14;
+  tip.style.left = Math.max(8, left) + 'px'; tip.style.top = Math.max(8, top) + 'px';
+});
+cv.addEventListener('pointerleave', () => { tip.hidden = true; });
+cv.addEventListener('click', e => {
+  const [x, y] = pos(e), h = hit(x, y);
+  if (!h) return;
+  if (h.kind === 'T') { state.w = h.ty; state.lane = h.tx; }
+  else if (h.kind === 'C' && h.r < 32 && h.c < 32) { const th = threadForC(h.r, h.c); state.w = th.y; state.lane = th.x; }
+  else if (activeAccess().includes(h.kind)) {
+    const l = lanesTouching(h.kind, h.r * DIM[h.kind].cols + h.c);
+    if (l.length && !l.includes(state.lane)) state.lane = l[0];
+  }
+  render();
+});
+
+/* ---------- dải chi tiết ---------- */
+function renderDetail() {
+  const key = STEPS[state.step].key, { w, k, lane, mode } = state;
+  let h = '';
+  if (key === 'warp') {
+    h += `<div class="sechead"><h2>32 lane của warp ${w}</h2><p class="hint">Bấm một lane để chọn.</p></div><div class="chips">`;
+    for (let i = 0; i < 32; i++)
+      h += `<button type="button" class="chip${i === lane ? ' sel' : ''}" data-lane="${i}"><b>lane ${i}</b><span>x ${i} · y ${w}</span><span>tid ${w * 32 + i}</span></button>`;
+    h += '</div>';
+  } else if (key === 'map') {
+    h += `<div class="sechead"><h2>Lane → phần tử C · ${mode === 'before' ? 'Trước' : 'Sau'}</h2><p class="hint">${mode === 'before' ? 'Hàng giữ nguyên, cột tăng theo lane.' : 'Cột giữ nguyên, hàng tăng theo lane.'}</p></div><div class="chips">`;
+    for (let i = 0; i < 32; i++) {
+      const p = rc(mode, i, w);
+      h += `<button type="button" class="chip${i === lane ? ' sel' : ''}" data-lane="${i}"><b>lane ${i}</b><span>C[${p.row}][${p.col}]</span></button>`;
+    }
+    h += '</div>';
+  } else if (key === 'mem') {
+    h += `<div class="sechead"><h2>Bộ nhớ phẳng của A: 3 hàng đầu</h2><p class="hint">Mỗi hộp là một sector (8 float = 32 byte). Số trong ô là cột c. Hàng 1 bắt đầu ngay sau hàng 0.</p></div><div class="sgrid">`;
+    for (let s = 0; s < 18; s++) {
+      const i0 = s * 8, r = Math.floor(i0 / K), c0 = i0 % K, hl = s === 13;
+      let cells = '';
+      for (let j = 0; j < 8; j++) cells += `<span class="sc${i0 + j === 109 ? ' hit' : ''}">${c0 + j}</span>`;
+      h += `<div class="sbox plain${hl ? ' hl' : ''}"><div class="shead"><b>sector ${s}</b><span>hàng ${r}</span></div><div class="scells">${cells}</div><div class="sfoot">chỉ số ${i0}–${i0 + 7} · byte ${i0 * 4}–${i0 * 4 + 31}</div></div>`;
+    }
+    h += '</div>';
+  } else if (key === 'A' || key === 'B' || key === 'C') {
+    const idxs = laneIdx(key), g = groupSectors(idxs), n = g.size, used = new Set(idxs).size * 4;
+    const what = key === 'C' ? 'Lệnh đọc C (lệnh ghi giống hệt)' : `Lệnh load ${key} ở vòng k = ${k}`;
+    h += `<div class="sechead"><h2>${what}: ${n} sector</h2><p class="hint">Warp ${w}. L1 xử lý ${n} × 32 = ${n * 32} byte. Warp cần ${used} byte khác nhau trong đó (${pct(used / (n * 32))}). Số trong ô là lane.</p></div><div class="sgrid">`;
+    for (const [s, m] of g) {
+      const i0 = s * 8, r = Math.floor(i0 / DIM[key].cols), c0 = i0 % DIM[key].cols;
+      let cells = '';
+      for (let j = 0; j < 8; j++) {
+        const l = m.get(i0 + j);
+        if (!l) { cells += '<span class="sc"></span>'; continue; }
+        const lab = l.length === 32 ? '×32' : l.length === 1 ? l[0] : l.length;
+        cells += `<span class="sc hit${l.includes(lane) ? ' sel' : ''}" title="lane ${laneRange(l)}">${lab}</span>`;
+      }
+      h += `<div class="sbox"><div class="shead"><b>sector ${s}</b><span>byte ${s * 32}–${s * 32 + 31}</span></div><div class="scells">${cells}</div><div class="sfoot">${key}[${r}][${c0}…${c0 + 7}] · dùng ${m.size}/8</div></div>`;
+    }
+    h += '</div>';
+    h += `<details class="lanes" id="laneTable"${laneTableOpen ? ' open' : ''}><summary>Bảng đầy đủ 32 lane</summary><div class="table-wrap"><table class="lt"><thead><tr><th>lane</th><th>threadIdx (x, y)</th><th>rowIdx</th><th>colIdx</th><th>chỉ số ${key}</th><th>byte</th><th>sector</th></tr></thead><tbody>`;
+    let prev = null, band = 0;
+    for (let i = 0; i < 32; i++) {
+      const p = rc(mode, i, w), idx = idxs[i], s = idx >> 3;
+      if (s !== prev) { band ^= 1; prev = s; }
+      h += `<tr class="b${band}${i === lane ? ' sel' : ''}"><td>${i}</td><td>(${i}, ${w})</td><td>${p.row}</td><td>${p.col}</td><td>${idx}</td><td>${idx * 4}</td><td>${s}</td></tr>`;
+    }
+    h += '</tbody></table></div></details>';
+  } else {
+    const rows = [
+      { lab:'Sector mỗi vòng k (load A + load B)', b:5, a:33 },
+      { lab:'Byte L1 xử lý mỗi vòng k', b:160, a:1056 },
+      { lab:'Byte warp thực sự cần mỗi vòng k', b:132, a:132 },
+      { lab:`Sector cả kernel, một warp (K = ${K})`, b:5 * K + 8, a:33 * K + 64 },
+    ];
+    h += `<div class="sechead"><h2>So sánh hai phiên bản</h2><p class="hint">Cùng lượng dữ liệu cần dùng. Bản Sau xử lý nhiều sector hơn khoảng 6,6 lần.</p></div><div class="bars">`;
+    for (const r of rows) {
+      const mx = Math.max(r.a, r.b);
+      h += `<div class="barrow"><div class="lab">${r.lab}</div>
+<div class="bar"><span>Trước</span><div class="track"><div class="fill b" style="width:${r.b / mx * 100}%"></div></div><span class="v">${r.b}</span></div>
+<div class="bar"><span>Sau</span><div class="track"><div class="fill a" style="width:${r.a / mx * 100}%"></div></div><span class="v">${r.a}</span></div></div>`;
+    }
+    h += '</div>';
+  }
+  $('detail').innerHTML = h;
+}
+$('detail').addEventListener('click', e => {
+  const b = e.target.closest('[data-lane]');
+  if (b) { state.lane = +b.dataset.lane; render(); }
+});
+$('detail').addEventListener('toggle', e => { if (e.target.id === 'laneTable') laneTableOpen = e.target.open; }, true);
+
+/* ---------- lane đang chọn ---------- */
+function renderInspector() {
+  const { mode, w, k, lane } = state, p = rc(mode, lane, w), tid = w * 32 + lane;
+  const a = p.row * K + k, b = k * N + p.col, c = p.row * N + p.col;
+  const rowE = mode === 'before' ? `blockIdx.y·32 + threadIdx.y = 0 + ${w}` : `blockIdx.x·32 + threadIdx.x = 0 + ${lane}`;
+  const colE = mode === 'before' ? `blockIdx.x·32 + threadIdx.x = 0 + ${lane}` : `blockIdx.y·32 + threadIdx.y = 0 + ${w}`;
+  const line = (m, e, v) => `${m}: ${e} = ${String(v).padEnd(4)} byte ${String(v * 4).padEnd(5)} sector ${v >> 3}`;
+  $('insp').innerHTML = `
+<div class="ihead"><b>Lane ${lane}</b> của warp ${w} · vòng k = ${k} · ${mode === 'before' ? 'Trước' : 'Sau'}</div>
+<pre>threadIdx = (x ${lane}, y ${w})   tid = ${w}·32 + ${lane} = ${tid}
+rowIdx = ${rowE} = ${p.row}
+colIdx = ${colE} = ${p.col}
+
+${line('A', `${p.row}·${K} + ${k}`, a)}
+${line('B', `${k}·${N} + ${p.col}`, b)}
+${line('C', `${p.row}·${N} + ${p.col}`, c)}</pre>
+<p class="hint">sector = chỉ số / 8 (chia lấy phần nguyên). Bấm một ô thread, một ô C trong block (0, 0), hoặc một ô vàng để chọn lane khác.</p>`;
+}
+
+/* ---------- điều khiển ---------- */
+const tabs = $('tabs');
+tabs.innerHTML = STEPS.map((s, i) => `<button type="button" class="tab" data-step="${i}"><span class="n">${i + 1}</span>${s.tab}</button>`).join('');
+tabs.addEventListener('click', e => { const b = e.target.closest('[data-step]'); if (b) { state.step = +b.dataset.step; render(); } });
+document.querySelectorAll('.cellbtn').forEach(b => b.addEventListener('click', () => {
+  state.step = +b.dataset.step; state.mode = b.dataset.mode; render();
+  document.querySelector('.main').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'start' });
+}));
+$('mBefore').addEventListener('click', () => { state.mode = 'before'; render(); });
+$('mAfter').addEventListener('click', () => { state.mode = 'after'; render(); });
+$('wIn').addEventListener('input', e => { state.w = +e.target.value; render(); });
+$('kIn').addEventListener('input', e => { state.k = +e.target.value; render(); });
+$('lIn').addEventListener('input', e => { state.lane = +e.target.value; render(); });
+$('prev').addEventListener('click', () => { if (state.step > 0) { state.step--; render(); } });
+$('next').addEventListener('click', () => { if (state.step < STEPS.length - 1) { state.step++; render(); } });
+$('play').addEventListener('click', () => {
+  if (timer) { clearInterval(timer); timer = null; }
+  else timer = setInterval(() => { state.k = (state.k + 1) % K; render(); }, 220);
+  $('play').textContent = timer ? 'Dừng' : 'Chạy vòng k';
+  $('play').setAttribute('aria-pressed', timer ? 'true' : 'false');
+});
+document.addEventListener('keydown', e => {
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+  if (e.key === 'ArrowRight' && state.step < STEPS.length - 1) { state.step++; render(); }
+  if (e.key === 'ArrowLeft' && state.step > 0) { state.step--; render(); }
+});
+
+function render() {
+  const s = STEPS[state.step];
+  $('mBefore').setAttribute('aria-pressed', state.mode === 'before');
+  $('mAfter').setAttribute('aria-pressed', state.mode === 'after');
+  $('wIn').value = state.w; $('wOut').textContent = state.w;
+  $('kIn').value = state.k; $('kOut').textContent = state.k;
+  $('lIn').value = state.lane; $('lOut').textContent = state.lane;
+  tabs.querySelectorAll('.tab').forEach((b, i) => b.setAttribute('aria-current', i === state.step ? 'step' : 'false'));
+  $('stepTitle').textContent = (state.step + 1) + '. ' + s.title;
+  $('stepMode').textContent =
+    s.key === 'warp' || s.key === 'mem' ? 'Giống nhau ở hai phiên bản'
+    : s.key === 'sum' ? 'So sánh hai phiên bản · hình đang hiện bản ' + (state.mode === 'before' ? 'Trước' : 'Sau')
+    : 'Đang xem: ' + (state.mode === 'before' ? 'Trước · x → col' : 'Sau · x → row');
+  $('stepBody').innerHTML = stepHTML();
+  $('prev').disabled = state.step === 0;
+  $('next').disabled = state.step === STEPS.length - 1;
+  document.querySelectorAll('.cellbtn').forEach(b =>
+    b.setAttribute('aria-current', (+b.dataset.step === state.step && b.dataset.mode === state.mode) ? 'true' : 'false'));
+  draw(); renderDetail(); renderInspector();
+}
+
+document.querySelectorAll('a[href^="#note-"]').forEach(a => a.addEventListener('click', () => {
+  const d = document.querySelector(a.getAttribute('href'));
+  if (d) d.open = true;
+}));
+
+readColors();
+const ro = new ResizeObserver(() => {
+  const w = cwrap.clientWidth;
+  if (w === lastW) return;
+  lastW = w; layout(); draw();
+});
+ro.observe(cwrap);
+layout();
+render();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => draw());
+})();
+</script>
+</body>
+</html>
