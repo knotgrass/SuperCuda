@@ -167,6 +167,21 @@ details.answer[open] > summary { border-bottom: 1px dashed var(--line); }
 details.answer > figure.code { border: 0; border-radius: 0; }
 @media (prefers-reduced-motion: reduce) { details.guide > summary::before { transition: none; } }
 
+/* step 9: one benchmark sample on a CPU lane and a GPU lane */
+figure.tl { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow-x: auto; }
+.tl-inner { min-width: 620px; display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 10px 10px; align-items: center; padding: 14px; font-family: var(--font-mono); font-size: 0.7rem; line-height: 1.3; }
+.tl-lane { color: var(--muted); font-weight: 600; letter-spacing: 0.06em; }
+.tl-track { display: flex; gap: 3px; align-items: stretch; min-height: 38px; }
+.tl-b { flex: var(--w) 1 0%; min-width: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 4px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--ink); overflow-wrap: anywhere; }
+.tl-b.op { background: var(--accent-soft); border-color: var(--accent); }
+.tl-b.flush { background: var(--warm-soft); border-color: var(--warm); }
+.tl-b.idle { background: none; border-style: dashed; color: var(--muted); }
+.tl-ev { flex: 0 0 auto; display: flex; align-items: center; padding: 0 5px; border-left: 2px solid var(--accent); border-right: 2px solid var(--accent); color: var(--accent); font-weight: 600; }
+figure.tl figcaption { font-size: 0.75rem; color: var(--muted); padding: 0 14px 12px; }
+/* step 9: one heading per benchmark version */
+h3.ver { font-size: 1.15rem; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 20px; padding-top: 22px; border-top: 1px solid var(--line); scroll-margin-top: 16px; }
+.vn { font-family: var(--font-mono); font-size: 0.78rem; font-weight: 600; color: var(--accent); background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 999px; padding: 1px 9px; }
+
 @media (max-width: 860px) {
   .layout { grid-template-columns: minmax(0, 1fr); gap: 28px; }
   .rail { position: static; }
@@ -182,7 +197,7 @@ details.answer > figure.code { border: 0; border-radius: 0; }
   <header class="top">
     <div class="eyebrow">SuperCuda · extension gemm</div>
     <h1>Từ một CUDA kernel đến Torch op</h1>
-    <p class="lede">Trang này đi theo kernel <code>naive_gemm</code> qua 12 bước: viết launcher, đăng ký Torch op, build, test, benchmark, rồi profile. Mọi số đo trên trang là kết quả chạy thật ngày 16/11/2026 trên máy của bạn. Lúc đo, kernel còn tên <code>naive_sgemm</code> và thư mục extension còn tên <code>torch-ext/</code>. Trang này dùng tên mới, <code>naive_gemm</code> (commit <code>250f352</code>) và <code>torch_ext/</code>, kể cả trong output.</p>
+    <p class="lede">Trang này đi theo kernel <code>naive_gemm</code> qua 12 bước: viết launcher, đăng ký Torch op, build, test, benchmark, rồi profile. Mọi số đo trên trang là kết quả chạy thật ngày 16/11/2026 trên máy của bạn. Lúc đo, kernel còn tên <code>naive_sgemm</code> và thư mục extension còn tên <code>torch-ext/</code>. Trang này dùng tên mới, <code>naive_gemm</code> (commit <code>250f352</code>) và <code>torch_ext/</code>, kể cả trong output. Bước 9 đo lại ngày 27/11/2026.</p>
     <ul class="facts">
       <li>RTX 5060 Ti</li><li>torch 2.15.0+cu134</li><li>nvcc 13.4</li><li>triton 3.9.0</li><li>nsys 2026.5.2</li><li>ncu 2026.3.1</li><li>build release</li>
     </ul>
@@ -633,15 +648,17 @@ torch::Tensor naive_cuda(const torch::Tensor&amp; A, const torch::Tensor&amp; B,
             </details>
 
             <div class="note warn">
-              <p><strong>Trước bước 3</strong> Ngày 17/11/2026, nhánh <code>main</code> chưa có các file hạ tầng mà bước 3 đến 11 dùng: <code>build.toml</code>, <code>pytest.ini</code>, <code>torch_ext/registration_dev.h</code>, <code>torch_ext/gemm/_ops.py</code>, <code>tests/test_matmul.py</code>, hai script trong <code>benchmarks/</code> và <code>script/roofline.py</code>. <code>script/build.sh</code> trên <code>main</code> vẫn import <code>supercuda</code>.</p>
-              <p>Branch <code>origin/claude/sweet-faraday-xea66r</code> có bản mới của 9 file này, nhưng dùng thư mục <code>torch-ext/</code> và còn tên cũ <code>sgemm</code> trong vài comment. Chạy lệnh dưới đây từ thư mục gốc của repo. Lệnh chép 9 file vào đúng chỗ, dưới <code>torch_ext/</code>, rồi đổi <code>torch-ext</code> thành <code>torch_ext</code> và <code>sgemm</code> thành <code>gemm</code> trong nội dung file.</p>
+              <p><strong>Trước bước 3</strong> Ngày 17/11/2026, nhánh <code>main</code> chưa có các file hạ tầng mà bước 3 đến 11 dùng: <code>build.toml</code>, <code>pytest.ini</code>, <code>torch_ext/registration_dev.h</code>, <code>torch_ext/gemm/_ops.py</code>, <code>tests/test_gemm.py</code>, hai script trong <code>benchmarks/</code> và <code>script/roofline.py</code>. <code>script/build.sh</code> trên <code>main</code> vẫn import <code>supercuda</code>.</p>
+              <p>Branch <code>origin/claude/sweet-faraday-xea66r</code> có bản mới của 9 file này, nhưng dùng thư mục <code>torch-ext/</code> và còn tên cũ <code>sgemm</code> trong vài comment. Chạy lệnh dưới đây từ thư mục gốc của repo. Lệnh chép 9 file vào đúng chỗ, dưới <code>torch_ext/</code>, rồi đổi <code>torch-ext</code> thành <code>torch_ext</code> và <code>sgemm</code> thành <code>gemm</code> trong nội dung file. Lệnh lưu <code>test_matmul.py</code> và <code>benchmark_matmul.py</code> dưới tên <code>test_gemm.py</code> và <code>benchmark_gemm.py</code>. Lệnh cũng đổi <code>benchmark_matmul</code> thành <code>benchmark_gemm</code> trong nội dung file.</p>
             </div>
             <div class="cmd"><pre><code>B=origin/claude/sweet-faraday-xea66r
 mkdir -p torch_ext/gemm tests benchmarks
 for f in build.toml pytest.ini script/build.sh script/roofline.py \
          torch-ext/registration_dev.h torch-ext/gemm/_ops.py \
          tests/test_matmul.py benchmarks/benchmark_matmul.py benchmarks/profile_matmul.py; do
-  git show "${B}:${f}" | sed -e 's/torch-ext/torch_ext/g' -e 's/sgemm/gemm/g' &gt; "${f/torch-ext/torch_ext}"
+  d="${f/torch-ext/torch_ext}"; d="${d/test_matmul/test_gemm}"; d="${d/benchmark_matmul/benchmark_gemm}"
+  git show "${B}:${f}" | sed -e 's/torch-ext/torch_ext/g' -e 's/sgemm/gemm/g' \
+                             -e 's/benchmark_matmul/benchmark_gemm/g' &gt; "$d"
 done</code></pre><button type="button" class="copy">Chép</button></div>
           </div>
         </details>
@@ -788,7 +805,7 @@ def test_<span data-k>naive</span>_matches_torch():
           <li><code>rtol</code>, <code>atol</code> = 1e-3: kernel và cuBLAS cộng K tích theo thứ tự khác nhau, nên float32 lệch khoảng 1e-4. Một lỗi index cho sai số từ 1 trở lên.</li>
         </ul>
         <h3>Khi bạn đã quen</h3>
-        <p><code>tests/test_matmul.py</code> là bản đầy đủ: mọi kernel trong <code>KERNELS</code>, 6 kích thước, 3 cặp (alpha, beta), cộng 2 test của <code>run_gemm</code>. Hiện có 20 test, cả 20 pass.</p>
+        <p><code>tests/test_gemm.py</code> là bản đầy đủ: mọi kernel trong <code>KERNELS</code>, 6 kích thước, 3 cặp (alpha, beta), cộng 2 test của <code>run_gemm</code>. Hiện có 20 test, cả 20 pass.</p>
         <div class="cmd"><pre><code>python -m pytest tests -q
 script/sanitizer.sh memcheck python -m pytest tests -q -x</code></pre><button type="button" class="copy">Chép</button></div>
         <p>Lệnh thứ hai chạy cùng các test dưới compute-sanitizer để tìm lỗi đọc, ghi ngoài vùng nhớ. Kết quả hiện tại: <code>ERROR SUMMARY: 0 errors</code>.</p>
@@ -796,7 +813,1141 @@ script/sanitizer.sh memcheck python -m pytest tests -q -x</code></pre><button ty
       </section>
 
       <section id="buoc-9">
-        <h2><span class="num">BƯỚC 9</span>Benchmark: gọi .so hay gọi hàm Python?</h2>
+        <h2><span class="num">BƯỚC 9</span>Benchmark: năm phiên bản</h2>
+        <p>Bạn viết <code>benchmarks/benchmark_gemm.py</code> qua 5 phiên bản. Mỗi phiên bản chạy được và thêm một ý. Phiên bản 1 đã đo đúng. Phiên bản 2 đến 5 làm cho con số đáng tin hơn.</p>
+
+        <h3>Ý chính: GPU chạy song song với Python</h3>
+        <figure class="tl" aria-label="Lời gọi op trên CPU và GPU">
+          <div class="tl-inner">
+            <span class="tl-lane">CPU</span>
+            <div class="tl-track">
+              <span class="tl-b op" style="--w:14">gemm.naive(…): xếp lệnh, trả về sau 0.011 ms</span>
+              <span class="tl-b idle" style="--w:58">Python chạy tiếp dòng sau, không đợi GPU</span>
+            </div>
+            <span class="tl-lane">GPU</span>
+            <div class="tl-track">
+              <span class="tl-b idle" style="--w:6">chờ</span>
+              <span class="tl-ev">start</span>
+              <span class="tl-b op" style="--w:56">kernel naive: 11.4 ms</span>
+              <span class="tl-ev">end</span>
+            </div>
+          </div>
+          <figcaption>Naive 1024³. Thời gian của kernel là khoảng cách giữa hai event <code>start</code> và <code>end</code>.</figcaption>
+        </figure>
+        <p>Lời gọi <code>gemm.naive(…)</code> chỉ xếp kernel vào hàng đợi của GPU, rồi trả về ngay. Nếu bấm giờ bằng <code>time.time()</code>, bạn đo được 0.011 ms thay vì 11.4 ms: sai 1000 lần. Vì vậy, đặt hai <strong>CUDA event</strong> ở hai đầu lời gọi. GPU tự ghi giờ khi chạy tới mỗi event.</p>
+
+        <div class="tw"><table>
+          <thead><tr><th>Phiên bản</th><th>Thêm gì</th><th>Vì sao</th></tr></thead>
+          <tbody>
+            <tr><td><a href="#b9-v1">1</a></td><td>CUDA event, warm-up, median, so với cuBLAS</td><td>Đo đúng thời gian của GPU</td></tr>
+            <tr><td><a href="#b9-v2">2</a></td><td>Kiểm tra kết quả trước khi đo</td><td>Kernel sai thì số đo vô nghĩa</td></tr>
+            <tr><td><a href="#b9-v3">3</a></td><td>Nhiều shape, mọi kernel, TFLOP/s</td><td>Một shape có thể cho kết luận sai</td></tr>
+            <tr><td><a href="#b9-v4">4</a></td><td>Flush L2, đủ mẫu, khoảng p20 đến p80</td><td>Số ổn định, và bạn biết độ nhiễu</td></tr>
+            <tr><td><a href="#b9-v5">5</a></td><td>Ghi môi trường, tham số dòng lệnh, CSV, so sánh hai lần chạy</td><td>Số vẫn dùng được sau nhiều tuần</td></tr>
+          </tbody>
+        </table></div>
+
+        <h3 class="ver" id="b9-v1"><span class="vn">v1</span>Đo đúng cơ bản</h3>
+        <figure class="code">
+          <figcaption>benchmarks/benchmark_gemm.py, phiên bản 1: toàn bộ file</figcaption>
+<pre><code>import torch
+import gemm
+
+torch.backends.cuda.matmul.allow_tf32 = False   <span class="c"># cuBLAS in full FP32, like the kernels</span>
+
+ALPHA, BETA = 0.5, -0.1
+
+
+def time_gpu(fn, n=20):
+    """Median GPU time of fn() in ms."""
+    for _ in range(3):              <span class="c"># warm-up: the first calls are slow</span>
+        fn()
+    times = []
+    for _ in range(n):
+        start = torch.cuda.Event(enable_timing=True)
+        end = torch.cuda.Event(enable_timing=True)
+        start.record()              <span class="c"># the GPU writes the time when it reaches this point</span>
+        fn()
+        end.record()
+        end.synchronize()           <span class="c"># the CPU waits until the GPU passes `end`</span>
+        times.append(start.elapsed_time(end))
+    return sorted(times)[n // 2]    <span class="c"># median</span>
+
+
+M = N = K = 1024
+A = torch.randn(M, K, device="cuda")
+B = torch.randn(K, N, device="cuda")
+C = torch.randn(M, N, device="cuda")
+
+t_cublas = time_gpu(lambda: torch.addmm(C, A, B, beta=BETA, alpha=ALPHA))
+t_naive = time_gpu(lambda: gemm.naive(A, B, C, ALPHA, BETA))
+print(f"cuBLAS {t_cublas:.3f} ms | naive {t_naive:.3f} ms | naive = {100 * t_cublas / t_naive:.1f} % cuBLAS")</code></pre>
+        </figure>
+        <div class="cmd"><pre><code>PYTHONPATH=torch_ext python benchmarks/benchmark_gemm.py</code></pre><button type="button" class="copy">Chép</button></div>
+        <figure class="out"><figcaption>Output, ngày 27/11/2026</figcaption>
+<pre><code>cuBLAS 0.164 ms | naive 11.306 ms | naive = 1.4 % cuBLAS</code></pre>
+        </figure>
+        <ul>
+          <li><strong>Event:</strong> <code>start.record()</code> và <code>end.record()</code> đặt hai mốc giờ vào hàng đợi của GPU. <code>end.synchronize()</code> bắt CPU đợi tới khi GPU chạy qua <code>end</code>. Sau đó <code>elapsed_time</code> mới đọc được.</li>
+          <li><strong>Warm-up:</strong> 3 lần gọi đầu không tính. Lần gọi cuBLAS đầu tiên mất 72.3 ms, vì cuBLAS khởi tạo. Lần thứ 5 chỉ mất 0.164 ms.</li>
+          <li><strong>Median:</strong> sắp xếp 20 số đo và lấy số ở giữa. Một lần chạy chậm bất thường không làm đổi median.</li>
+          <li><strong>So với cuBLAS:</strong> <code>torch.addmm(C, A, B, beta, alpha)</code> tính đúng <code>alpha * A @ B + beta * C</code>, giống kernel của bạn. TF32 phải tắt. Nếu TF32 bật, cuBLAS dùng tensor core với độ chính xác thấp hơn, và nhanh hơn 1.53 lần ở 4096³.</li>
+          <li><code>PYTHONPATH=torch_ext</code>: package <code>gemm</code> nằm trong <code>torch_ext/</code>. Phiên bản 5 bỏ yêu cầu này.</li>
+        </ul>
+
+        <h3 class="ver" id="b9-v2"><span class="vn">v2</span>Kiểm tra kết quả trước khi đo</h3>
+        <figure class="code">
+          <figcaption>Thêm hàm này sau time_gpu</figcaption>
+<pre><code>def check(out, ref, K):
+    """Same tolerance as tests/test_gemm.py. Return (ok, max abs error)."""
+    atol = 1e-6 * max(1.0, abs(ALPHA)) * max(K, 1024)
+    err = (out - ref).abs().max().item()
+    return torch.allclose(out, ref, rtol=1e-3, atol=atol), err</code></pre>
+        </figure>
+        <figure class="code">
+          <figcaption>Thay 3 dòng cuối của phiên bản 1 bằng đoạn này</figcaption>
+<pre><code>ref = torch.addmm(C, A, B, beta=BETA, alpha=ALPHA)
+ok, err = check(gemm.naive(A, B, C, ALPHA, BETA), ref, K)
+if not ok:
+    print(f"naive: FAIL, max abs error {err:.3g}, not timed")
+else:
+    t_cublas = time_gpu(lambda: torch.addmm(C, A, B, beta=BETA, alpha=ALPHA))
+    t_naive = time_gpu(lambda: gemm.naive(A, B, C, ALPHA, BETA))
+    print(f"cuBLAS {t_cublas:.3f} ms | naive {t_naive:.3f} ms | naive = {100 * t_cublas / t_naive:.1f} % cuBLAS")</code></pre>
+        </figure>
+        <figure class="out"><figcaption>Output khi kernel đúng</figcaption>
+<pre><code>cuBLAS 0.165 ms | naive 11.296 ms | naive = 1.5 % cuBLAS</code></pre>
+        </figure>
+        <ul>
+          <li>Kernel nhanh mà sai thì không có giá trị. Vì vậy, script so kết quả với cuBLAS trước. Script chỉ đo khi kết quả đúng.</li>
+          <li>Dùng cùng dung sai với <code>tests/test_gemm.py</code>. Nếu hai nơi dùng hai dung sai khác nhau, một kernel có thể pass test nhưng FAIL trong benchmark.</li>
+          <li>Benchmark đo cả những shape mà pytest không chạy (phiên bản 3). Vì vậy benchmark tự kiểm tra lại, ngay trên tensor nó sẽ đo.</li>
+        </ul>
+        <p><strong>Thử làm sai:</strong> trong dòng <code>ok, err = check(…)</code>, đổi <code>BETA</code> thành <code>0.0</code>. Chạy lại, rồi đổi về <code>BETA</code>.</p>
+        <figure class="out"><figcaption>Output khi kernel sai</figcaption>
+<pre><code>naive: FAIL, max abs error 0.5, not timed</code></pre>
+        </figure>
+        <details class="answer" id="b9-full2">
+          <summary>Toàn bộ file sau phiên bản 2</summary>
+          <figure class="code">
+<pre><code>import torch
+import gemm
+
+torch.backends.cuda.matmul.allow_tf32 = False   <span class="c"># cuBLAS in full FP32, like the kernels</span>
+
+ALPHA, BETA = 0.5, -0.1
+
+
+def time_gpu(fn, n=20):
+    """Median GPU time of fn() in ms."""
+    for _ in range(3):              <span class="c"># warm-up: the first calls are slow</span>
+        fn()
+    times = []
+    for _ in range(n):
+        start = torch.cuda.Event(enable_timing=True)
+        end = torch.cuda.Event(enable_timing=True)
+        start.record()              <span class="c"># the GPU writes the time when it reaches this point</span>
+        fn()
+        end.record()
+        end.synchronize()           <span class="c"># the CPU waits until the GPU passes `end`</span>
+        times.append(start.elapsed_time(end))
+    return sorted(times)[n // 2]    <span class="c"># median</span>
+
+
+def check(out, ref, K):
+    """Same tolerance as tests/test_gemm.py. Return (ok, max abs error)."""
+    atol = 1e-6 * max(1.0, abs(ALPHA)) * max(K, 1024)
+    err = (out - ref).abs().max().item()
+    return torch.allclose(out, ref, rtol=1e-3, atol=atol), err
+
+
+M = N = K = 1024
+A = torch.randn(M, K, device="cuda")
+B = torch.randn(K, N, device="cuda")
+C = torch.randn(M, N, device="cuda")
+
+ref = torch.addmm(C, A, B, beta=BETA, alpha=ALPHA)
+ok, err = check(gemm.naive(A, B, C, ALPHA, BETA), ref, K)
+if not ok:
+    print(f"naive: FAIL, max abs error {err:.3g}, not timed")
+else:
+    t_cublas = time_gpu(lambda: torch.addmm(C, A, B, beta=BETA, alpha=ALPHA))
+    t_naive = time_gpu(lambda: gemm.naive(A, B, C, ALPHA, BETA))
+    print(f"cuBLAS {t_cublas:.3f} ms | naive {t_naive:.3f} ms | naive = {100 * t_cublas / t_naive:.1f} % cuBLAS")</code></pre>
+          </figure>
+        </details>
+
+        <h3 class="ver" id="b9-v3"><span class="vn">v3</span>Nhiều shape, mọi kernel, TFLOP/s</h3>
+        <figure class="code">
+          <figcaption>Thêm sau dòng ALPHA, BETA</figcaption>
+<pre><code><span class="c"># FP32 peak without tensor cores, from the spec sheet: SMs x 128 lanes x 2 FLOP x boost clock.</span>
+PEAK_TFLOPS = {"RTX 5060 Ti": 23.7, "A10": 31.2}
+
+SUITES = {
+    "square": [(n, n, n) for n in (256, 512, 1024, 2048, 4096)],
+    "odd": [(1000, 1000, 1000), (1023, 1025, 1027), (3000, 2000, 1000)],
+    "llm": [(m, 4096, 4096) for m in (1, 16, 128, 2048)] + [(2048, 14336, 4096), (2048, 4096, 14336)],
+}</code></pre>
+        </figure>
+        <figure class="code">
+          <figcaption>Thêm sau check</figcaption>
+<pre><code>def print_row(name, ms, cublas_ms, flop, peak):
+    tflops = flop / (ms * 1e-3) / 1e12
+    print(f"  {name:12s} {ms:10.4f} ms {tflops:7.2f} TFLOP/s {100 * tflops / peak:6.1f} % peak"
+          f" {100 * cublas_ms / ms:7.1f} % cuBLAS")
+
+
+def bench_shape(M, N, K, peak):
+    torch.manual_seed(0)
+    A = torch.randn(M, K, device="cuda")
+    B = torch.randn(K, N, device="cuda")
+    C = torch.randn(M, N, device="cuda")
+    flop = 2.0 * M * N * K          <span class="c"># BLAS convention: K multiplies + K adds per element of C</span>
+
+    def cublas():
+        return torch.addmm(C, A, B, beta=BETA, alpha=ALPHA)
+
+    ref = cublas()
+    t_cublas = time_gpu(cublas)
+    print(f"\n{M} x {N} x {K}")
+    print_row("cuBLAS", t_cublas, t_cublas, flop, peak)
+    for name, fn in gemm.KERNELS.items():          <span class="c"># every kernel, not only naive</span>
+
+        def call(fn=fn):
+            return fn(A, B, C, ALPHA, BETA)
+
+        ok, err = check(call(), ref, K)
+        if not ok:
+            print(f"  {name:12s}  FAIL: max abs error {err:.3g}, not timed")
+            continue
+        print_row(name, time_gpu(call), t_cublas, flop, peak)</code></pre>
+        </figure>
+        <figure class="code">
+          <figcaption>Thay phần cuối file (từ M = N = K = 1024) bằng đoạn này</figcaption>
+<pre><code>peak = next((v for k, v in PEAK_TFLOPS.items() if k in torch.cuda.get_device_name()), float("nan"))
+for M, N, K in SUITES["square"] + SUITES["odd"]:
+    bench_shape(M, N, K, peak)</code></pre>
+        </figure>
+        <figure class="out"><figcaption>Output, ngày 27/11/2026</figcaption>
+<pre><code>256 x 256 x 256
+  cuBLAS           0.0195 ms    1.72 TFLOP/s    7.3 % peak   100.0 % cuBLAS
+  naive            0.2029 ms    0.17 TFLOP/s    0.7 % peak     9.6 % cuBLAS
+
+512 x 512 x 512
+  cuBLAS           0.0378 ms    7.10 TFLOP/s   29.9 % peak   100.0 % cuBLAS
+  naive            1.5521 ms    0.17 TFLOP/s    0.7 % peak     2.4 % cuBLAS
+
+1024 x 1024 x 1024
+  cuBLAS           0.1639 ms   13.10 TFLOP/s   55.3 % peak   100.0 % cuBLAS
+  naive           11.3018 ms    0.19 TFLOP/s    0.8 % peak     1.4 % cuBLAS
+
+2048 x 2048 x 2048
+  cuBLAS           1.0985 ms   15.64 TFLOP/s   66.0 % peak   100.0 % cuBLAS
+  naive           88.5914 ms    0.19 TFLOP/s    0.8 % peak     1.2 % cuBLAS
+
+4096 x 4096 x 4096
+  cuBLAS           8.7027 ms   15.79 TFLOP/s   66.6 % peak   100.0 % cuBLAS
+  naive          738.8739 ms    0.19 TFLOP/s    0.8 % peak     1.2 % cuBLAS
+
+1000 x 1000 x 1000
+  cuBLAS           0.1721 ms   11.62 TFLOP/s   49.0 % peak   100.0 % cuBLAS
+  naive            3.8745 ms    0.52 TFLOP/s    2.2 % peak     4.4 % cuBLAS
+
+1023 x 1025 x 1027
+  cuBLAS           0.2108 ms   10.22 TFLOP/s   43.1 % peak   100.0 % cuBLAS
+  naive            3.6852 ms    0.58 TFLOP/s    2.5 % peak     5.7 % cuBLAS
+
+3000 x 2000 x 1000
+  cuBLAS           0.9779 ms   12.27 TFLOP/s   51.8 % peak   100.0 % cuBLAS
+  naive           23.8140 ms    0.50 TFLOP/s    2.1 % peak     4.1 % cuBLAS</code></pre>
+        </figure>
+        <ul>
+          <li><code>bench_shape</code> lặp qua <code>gemm.KERNELS</code>. Khi bạn thêm một kernel vào dict đó (bước 5), kernel tự có trong bảng.</li>
+          <li><strong>TFLOP/s</strong> = 2·M·N·K chia cho thời gian. <strong>% peak</strong> = TFLOP/s chia cho đỉnh FP32 của GPU: 36 SM × 128 lane × 2 FLOP × 2.572 GHz = 23.7 TFLOP/s. <strong>% cuBLAS</strong> = thời gian cuBLAS chia cho thời gian kernel.</li>
+          <li><code>SUITES</code>: <code>square</code> cho đường cong theo kích thước. <code>odd</code> có các chiều không chia hết cho 32. <code>llm</code> có shape của một lớp linear trong LLM cỡ 8B (M = số token).</li>
+          <li><code>torch.manual_seed(0)</code>: mỗi lần chạy dùng cùng dữ liệu.</li>
+        </ul>
+        <div class="note">
+          <p><strong>Vì sao cần suite odd</strong> Naive đạt 1.4 % cuBLAS ở 1024³, nhưng 5.7 % ở 1023 × 1025 × 1027. Chỉ đổi shape 1 đơn vị, naive nhanh hơn 3 lần. Nếu chỉ đo lũy thừa của 2, bạn thấy một phần của bức tranh.</p>
+        </div>
+        <div class="tw"><table>
+          <thead><tr><th>n (M = N = K)</th><th class="num">Số vị trí khác nhau trong dòng 128 byte</th><th class="num">naive TFLOP/s</th></tr></thead>
+          <tbody>
+            <tr><td>960, 992, 1024, 1056, 1088, 2048</td><td class="num">1</td><td class="num">0.185 – 0.191</td></tr>
+            <tr><td>1008, 1040, 2000</td><td class="num">2</td><td class="num">0.348 – 0.360</td></tr>
+            <tr><td>1000, 1016, 1032</td><td class="num">4</td><td class="num">0.515 – 0.562</td></tr>
+            <tr><td>1023, 1025</td><td class="num">32</td><td class="num">0.621 – 0.626</td></tr>
+          </tbody>
+          <caption>Naive ở 14 kích thước, ngày 27/11/2026. 32 thread của một warp đọc 32 hàng của A, cách nhau n · 4 byte. Cột giữa đếm số vị trí khác nhau của 32 địa chỉ đó trong dòng cache 128 byte.</caption>
+        </table></div>
+        <p>Khi n chia hết cho 32, cả 32 địa chỉ rơi vào cùng một vị trí trong dòng cache, và naive chậm nhất. Đây là giả thuyết. Bạn kiểm tra bằng ncu ở bước 11: so sánh cột Wavefronts của L1 giữa 1023³ và 1024³.</p>
+        <details class="answer" id="b9-full3">
+          <summary>Toàn bộ file sau phiên bản 3</summary>
+          <figure class="code">
+<pre><code>import torch
+import gemm
+
+torch.backends.cuda.matmul.allow_tf32 = False   <span class="c"># cuBLAS in full FP32, like the kernels</span>
+
+ALPHA, BETA = 0.5, -0.1         <span class="c"># not 1 and 0: the kernel must do all of alpha * A @ B + beta * C</span>
+
+<span class="c"># FP32 peak without tensor cores, from the spec sheet: SMs x 128 lanes x 2 FLOP x boost clock.</span>
+PEAK_TFLOPS = {"RTX 5060 Ti": 23.7, "A10": 31.2}
+
+SUITES = {
+    "square": [(n, n, n) for n in (256, 512, 1024, 2048, 4096)],
+    "odd": [(1000, 1000, 1000), (1023, 1025, 1027), (3000, 2000, 1000)],
+    "llm": [(m, 4096, 4096) for m in (1, 16, 128, 2048)] + [(2048, 14336, 4096), (2048, 4096, 14336)],
+}
+
+
+def time_gpu(fn, n=20):
+    """Median GPU time of fn() in ms."""
+    for _ in range(3):              <span class="c"># warm-up: the first calls are slow</span>
+        fn()
+    times = []
+    for _ in range(n):
+        start = torch.cuda.Event(enable_timing=True)
+        end = torch.cuda.Event(enable_timing=True)
+        start.record()              <span class="c"># the GPU writes the time when it reaches this point</span>
+        fn()
+        end.record()
+        end.synchronize()           <span class="c"># the CPU waits until the GPU passes `end`</span>
+        times.append(start.elapsed_time(end))
+    return sorted(times)[n // 2]    <span class="c"># median</span>
+
+
+def check(out, ref, K):
+    """Same tolerance as tests/test_gemm.py. Return (ok, max abs error)."""
+    atol = 1e-6 * max(1.0, abs(ALPHA)) * max(K, 1024)
+    err = (out - ref).abs().max().item()
+    return torch.allclose(out, ref, rtol=1e-3, atol=atol), err
+
+
+def print_row(name, ms, cublas_ms, flop, peak):
+    tflops = flop / (ms * 1e-3) / 1e12
+    print(f"  {name:12s} {ms:10.4f} ms {tflops:7.2f} TFLOP/s {100 * tflops / peak:6.1f} % peak"
+          f" {100 * cublas_ms / ms:7.1f} % cuBLAS")
+
+
+def bench_shape(M, N, K, peak):
+    torch.manual_seed(0)
+    A = torch.randn(M, K, device="cuda")
+    B = torch.randn(K, N, device="cuda")
+    C = torch.randn(M, N, device="cuda")
+    flop = 2.0 * M * N * K          <span class="c"># BLAS convention: K multiplies + K adds per element of C</span>
+
+    def cublas():
+        return torch.addmm(C, A, B, beta=BETA, alpha=ALPHA)
+
+    ref = cublas()
+    t_cublas = time_gpu(cublas)
+    print(f"\n{M} x {N} x {K}")
+    print_row("cuBLAS", t_cublas, t_cublas, flop, peak)
+    for name, fn in gemm.KERNELS.items():          <span class="c"># every kernel, not only naive</span>
+
+        def call(fn=fn):
+            return fn(A, B, C, ALPHA, BETA)
+
+        ok, err = check(call(), ref, K)
+        if not ok:
+            print(f"  {name:12s}  FAIL: max abs error {err:.3g}, not timed")
+            continue
+        print_row(name, time_gpu(call), t_cublas, flop, peak)
+
+
+peak = next((v for k, v in PEAK_TFLOPS.items() if k in torch.cuda.get_device_name()), float("nan"))
+for M, N, K in SUITES["square"] + SUITES["odd"]:
+    bench_shape(M, N, K, peak)</code></pre>
+          </figure>
+        </details>
+
+        <h3 class="ver" id="b9-v4"><span class="vn">v4</span>Số ổn định: flush L2, đủ mẫu, khoảng nhiễu</h3>
+        <p>Phiên bản 3 còn hai chỗ sai. So sánh cùng một lời gọi cuBLAS trong output của phiên bản 3 và phiên bản 4:</p>
+        <div class="tw"><table>
+          <thead><tr><th>cuBLAS</th><th class="num">v3</th><th class="num">v4</th><th>Vì sao v3 sai</th></tr></thead>
+          <tbody>
+            <tr><td>1024³</td><td class="num">0.1639 ms</td><td class="num">0.1843 ms</td><td>A, B, C còn nằm trong L2 từ lần gọi trước, nên v3 nhanh hơn thực tế 11 %.</td></tr>
+            <tr><td>256³</td><td class="num">0.0195 ms</td><td class="num">0.0143 ms</td><td>Kernel ngắn hơn thời gian CPU xếp lệnh. GPU chờ CPU, nên v3 chậm hơn thực tế 36 %.</td></tr>
+          </tbody>
+        </table></div>
+        <figure class="tl" aria-label="Một mẫu đo có flush L2, trên CPU và GPU">
+          <div class="tl-inner">
+            <span class="tl-lane">CPU</span>
+            <div class="tl-track">
+              <span class="tl-b" style="--w:7">zero_()</span>
+              <span class="tl-b" style="--w:7">start.record()</span>
+              <span class="tl-b op" style="--w:13">fn(): xếp lệnh, 7 – 11 µs</span>
+              <span class="tl-b" style="--w:7">end.record()</span>
+              <span class="tl-b idle" style="--w:40">CPU đã xếp xong, sang mẫu sau</span>
+            </div>
+            <span class="tl-lane">GPU</span>
+            <div class="tl-track">
+              <span class="tl-b flush" style="--w:38">flush L2: ghi 256 MiB, 0.635 ms</span>
+              <span class="tl-ev">start</span>
+              <span class="tl-b op" style="--w:8">clone C</span>
+              <span class="tl-b op" style="--w:24">kernel</span>
+              <span class="tl-ev">end</span>
+              <span class="tl-b flush" style="--w:10">flush …</span>
+            </div>
+          </div>
+          <figcaption>Một mẫu của phiên bản 4. Hình không theo tỉ lệ thời gian.</figcaption>
+        </figure>
+        <p>Flush sửa cả hai chỗ sai. GPU ghi 256 MiB (gấp 8 lần L2) để xoá dữ liệu cũ khỏi L2. Việc ghi đó mất 0.635 ms, và trong thời gian đó CPU đã xếp xong lời gọi. Vì vậy, GPU không bao giờ chờ CPU.</p>
+        <figure class="code">
+          <figcaption>Thêm sau dòng ALPHA, BETA</figcaption>
+<pre><code>L2_FLUSH_BYTES = 256 * 2**20    <span class="c"># 8 x the 32 MiB L2 of the RTX 5060 Ti</span>
+DRIFT_LIMIT = 0.03              <span class="c"># cuBLAS before vs after the kernels: more than 3 % = the GPU changed</span>
+NOISE_LIMIT = 0.05              <span class="c"># (p80 - p20) / median above 5 % = a noisy measurement</span></code></pre>
+        </figure>
+        <figure class="code">
+          <figcaption>Thay time_gpu bằng hai hàm này</figcaption>
+<pre><code><span class="c"># ---------------------------------------------------------------- measurement</span>
+def gpu_times(fn, flush: torch.Tensor, min_ms: float, min_samples: int = 10, max_samples: int = 1000) -&gt; list[float]:
+    """Run fn many times. Return the GPU time of each call in ms."""
+    <span class="c"># Warm-up by time, not by count. The first call loads the kernel module and creates</span>
+    <span class="c"># the cuBLAS handle; the next calls raise the GPU clock from idle.</span>
+    fn()
+    torch.cuda.synchronize()
+    t0, calls = time.perf_counter(), 0
+    while (time.perf_counter() - t0) * 1e3 &lt; 100 or calls &lt; 2:
+        fn()
+        torch.cuda.synchronize()
+        calls += 1
+    est_ms = (time.perf_counter() - t0) * 1e3 / calls      <span class="c"># includes host overhead: an upper bound</span>
+    n = min(max_samples, max(min_samples, math.ceil(min_ms / est_ms)))
+
+    starts = [torch.cuda.Event(enable_timing=True) for _ in range(n)]
+    ends = [torch.cuda.Event(enable_timing=True) for _ in range(n)]
+    for i in range(n):
+        flush.zero_()          <span class="c"># evict A, B, C from L2; the CPU queues the call while the GPU writes</span>
+        starts[i].record()
+        fn()
+        ends[i].record()
+    torch.cuda.synchronize()   <span class="c"># one sync for all samples</span>
+    return [s.elapsed_time(e) for s, e in zip(starts, ends)]
+
+
+def summarize(times: list[float]) -&gt; dict:
+    deciles = statistics.quantiles(times, n=10, method="inclusive")
+    return {"median_ms": statistics.median(times), "p20_ms": deciles[1], "p80_ms": deciles[7], "n": len(times)}</code></pre>
+        </figure>
+        <figure class="code">
+          <figcaption>Thay print_row và bench_shape bằng hai hàm này</figcaption>
+<pre><code><span class="c"># ---------------------------------------------------------------- one shape</span>
+def bench_shape(M: int, N: int, K: int, kernels: list[str], flush, min_ms: float, peak: float | None) -&gt; list[dict]:
+    torch.manual_seed(0)
+    A = torch.randn(M, K, device="cuda")      <span class="c"># random data: zeros draw less power and run faster</span>
+    B = torch.randn(K, N, device="cuda")
+    C = torch.randn(M, N, device="cuda")
+    flop = 2.0 * M * N * K                     <span class="c"># BLAS convention: K multiplies + K adds per element of C</span>
+
+    def cublas():
+        return torch.addmm(C, A, B, beta=BETA, alpha=ALPHA)
+
+    ref = cublas()
+    before = summarize(gpu_times(cublas, flush, min_ms))
+    rows = [{"kernel": "cuBLAS", "ok": True, "err": 0.0, **before}]
+    for name in kernels:
+        fn = gemm.KERNELS[name]
+
+        def call(fn=fn):
+            return fn(A, B, C, ALPHA, BETA)
+
+        ok, err = check(call(), ref, K)        <span class="c"># correctness gate: never time a wrong kernel</span>
+        stats = summarize(gpu_times(call, flush, min_ms)) if ok else {"median_ms": math.nan, "p20_ms": math.nan, "p80_ms": math.nan, "n": 0}
+        rows.append({"kernel": name, "ok": ok, "err": err, **stats})
+    after = summarize(gpu_times(cublas, flush, min_ms))
+
+    drift = abs(after["median_ms"] - before["median_ms"]) / before["median_ms"]
+    base_ms = (before["median_ms"] + after["median_ms"]) / 2
+    for r in rows:
+        t = r["median_ms"]
+        r.update(M=M, N=N, K=K, alpha=ALPHA, beta=BETA, cublas_drift=round(drift, 4),
+                 tflops=flop / (t * 1e-3) / 1e12,
+                 pct_peak=100 * flop / (t * 1e-3) / 1e12 / peak if peak else math.nan,
+                 pct_cublas=100 * base_ms / t,
+                 spread=(r["p80_ms"] - r["p20_ms"]) / t)
+    return rows
+
+
+def print_rows(rows: list[dict]) -&gt; None:
+    M, N, K = rows[0]["M"], rows[0]["N"], rows[0]["K"]
+    print(f"\n{M} x {N} x {K}")
+    for r in rows:
+        if not r["ok"]:
+            print(f"  {r['kernel']:12s}  FAIL: max abs error {r['err']:.3g}, not timed")
+            continue
+        noisy = "  noisy" if r["spread"] &gt; NOISE_LIMIT else ""
+        print(f"  {r['kernel']:12s} {r['median_ms']:10.4f} ms  [{r['p20_ms']:.4f}, {r['p80_ms']:.4f}]  n={r['n']:&lt;5d}"
+              f"{r['tflops']:7.2f} TFLOP/s {r['pct_peak']:6.1f} % peak {r['pct_cublas']:7.1f} % cuBLAS{noisy}")
+    drift = rows[0]["cublas_drift"]
+    if drift &gt; DRIFT_LIMIT:
+        print(f"  warning: cuBLAS changed by {100 * drift:.1f} % during this shape (clock, heat, or another process)")</code></pre>
+        </figure>
+        <figure class="code">
+          <figcaption>Cuối file; thêm import math, statistics, time ở đầu file</figcaption>
+<pre><code>peak = next((v for k, v in PEAK_TFLOPS.items() if k in torch.cuda.get_device_name()), None)
+flush = torch.empty(L2_FLUSH_BYTES, dtype=torch.uint8, device="cuda")
+for M, N, K in SUITES["square"] + SUITES["odd"]:
+    print_rows(bench_shape(M, N, K, list(gemm.KERNELS), flush, 500.0, peak))</code></pre>
+        </figure>
+        <figure class="out"><figcaption>Output, ngày 27/11/2026</figcaption>
+<pre><code>256 x 256 x 256
+  cuBLAS           0.0143 ms  [0.0143, 0.0164]  n=1000    2.34 TFLOP/s    9.9 % peak   100.0 % cuBLAS  noisy
+  naive            0.2007 ms  [0.2007, 0.2027]  n=1000    0.17 TFLOP/s    0.7 % peak     7.1 % cuBLAS
+
+512 x 512 x 512
+  cuBLAS           0.0389 ms  [0.0369, 0.0389]  n=1000    6.90 TFLOP/s   29.1 % peak   100.0 % cuBLAS  noisy
+  naive            1.5514 ms  [1.5513, 1.5534]  n=320     0.17 TFLOP/s    0.7 % peak     2.5 % cuBLAS
+
+1024 x 1024 x 1024
+  cuBLAS           0.1843 ms  [0.1823, 0.1864]  n=1000   11.65 TFLOP/s   49.2 % peak   100.0 % cuBLAS
+  naive           11.3828 ms  [11.2224, 11.3879]  n=45      0.19 TFLOP/s    0.8 % peak     1.6 % cuBLAS
+
+2048 x 2048 x 2048
+  cuBLAS           1.1592 ms  [1.1530, 1.1705]  n=442    14.82 TFLOP/s   62.5 % peak   100.1 % cuBLAS
+  naive           89.0050 ms  [88.9332, 89.1236]  n=10      0.19 TFLOP/s    0.8 % peak     1.3 % cuBLAS
+
+4096 x 4096 x 4096
+  cuBLAS           8.8878 ms  [8.7580, 8.9281]  n=58     15.46 TFLOP/s   65.2 % peak   100.0 % cuBLAS
+  naive          708.7415 ms  [707.1608, 710.5672]  n=10      0.19 TFLOP/s    0.8 % peak     1.3 % cuBLAS
+
+1000 x 1000 x 1000
+  cuBLAS           0.1908 ms  [0.1888, 0.1918]  n=1000   10.48 TFLOP/s   44.2 % peak   100.0 % cuBLAS
+  naive            3.9001 ms  [3.8943, 4.0579]  n=128     0.51 TFLOP/s    2.2 % peak     4.9 % cuBLAS
+
+1023 x 1025 x 1027
+  cuBLAS           0.2277 ms  [0.2276, 0.2298]  n=1000    9.46 TFLOP/s   39.9 % peak   100.0 % cuBLAS
+  naive            3.6588 ms  [3.6567, 3.8191]  n=137     0.59 TFLOP/s    2.5 % peak     6.2 % cuBLAS
+
+3000 x 2000 x 1000
+  cuBLAS           1.0134 ms  [1.0066, 1.0230]  n=508    11.84 TFLOP/s   50.0 % peak   100.1 % cuBLAS
+  naive           23.3226 ms  [23.1696, 23.3518]  n=22      0.51 TFLOP/s    2.2 % peak     4.3 % cuBLAS</code></pre>
+        </figure>
+        <div class="tw"><table>
+          <thead><tr><th>Phần mới</th><th>Lý do</th></tr></thead>
+          <tbody>
+            <tr><td>Warm-up 100 ms thay cho 3 lần gọi</td><td>GPU cần thời gian để tăng clock: khoảng 990 MHz lúc nghỉ, khoảng 2800 MHz khi chạy.</td></tr>
+            <tr><td>Số mẫu theo thời gian: ít nhất 10 mẫu và 0.5 s</td><td>Kernel nhanh có tới 1000 mẫu. Kernel 0.7 s vẫn có 10 mẫu.</td></tr>
+            <tr><td>Một lần synchronize, sau vòng lặp</td><td>Mỗi mẫu có cặp event riêng, nên vòng lặp không cần đợi GPU.</td></tr>
+            <tr><td>Cột <code>[p20, p80]</code> và <code>noisy</code></td><td>60 % mẫu ở giữa nằm trong khoảng này. Khi (p80 − p20) / median lớn hơn 5 %, script in <code>noisy</code>.</td></tr>
+            <tr><td>cuBLAS đo hai lần: trước và sau các kernel</td><td>Nếu hai lần lệch nhau hơn 3 %, GPU đã đổi trong lúc đo: clock, nhiệt độ hoặc một process khác. Một lần chạy thử in: <code>warning: cuBLAS changed by 6.4 % during this shape</code> ở 4096³.</td></tr>
+            <tr><td><code>torch.randn</code>, không dùng <code>zeros</code></td><td>Với input toàn số 0, GPU tiêu ít điện hơn (155 W so với 180 W), giữ clock cao hơn, và cuBLAS 4096³ nhanh hơn 11 %.</td></tr>
+          </tbody>
+        </table></div>
+        <details class="answer" id="b9-full4">
+          <summary>Toàn bộ file sau phiên bản 4</summary>
+          <figure class="code">
+<pre><code>import math
+import statistics
+import time
+
+import torch
+import gemm
+
+torch.backends.cuda.matmul.allow_tf32 = False      <span class="c"># cuBLAS in full FP32, like the kernels</span>
+
+ALPHA, BETA = 0.5, -0.1         <span class="c"># not 1 and 0: the kernel must do all of alpha * A @ B + beta * C</span>
+L2_FLUSH_BYTES = 256 * 2**20    <span class="c"># 8 x the 32 MiB L2 of the RTX 5060 Ti</span>
+DRIFT_LIMIT = 0.03              <span class="c"># cuBLAS before vs after the kernels: more than 3 % = the GPU changed</span>
+NOISE_LIMIT = 0.05              <span class="c"># (p80 - p20) / median above 5 % = a noisy measurement</span>
+
+<span class="c"># FP32 peak without tensor cores, from the spec sheet: SMs x 128 lanes x 2 FLOP x boost clock.</span>
+PEAK_TFLOPS = {"RTX 5060 Ti": 23.7, "A10": 31.2}
+
+SUITES = {
+    "square": [(n, n, n) for n in (256, 512, 1024, 2048, 4096)],
+    "odd": [(1000, 1000, 1000), (1023, 1025, 1027), (3000, 2000, 1000)],
+    "llm": [(m, 4096, 4096) for m in (1, 16, 128, 2048)] + [(2048, 14336, 4096), (2048, 4096, 14336)],
+}
+
+
+<span class="c"># ---------------------------------------------------------------- measurement</span>
+def gpu_times(fn, flush: torch.Tensor, min_ms: float, min_samples: int = 10, max_samples: int = 1000) -&gt; list[float]:
+    """Run fn many times. Return the GPU time of each call in ms."""
+    <span class="c"># Warm-up by time, not by count. The first call loads the kernel module and creates</span>
+    <span class="c"># the cuBLAS handle; the next calls raise the GPU clock from idle.</span>
+    fn()
+    torch.cuda.synchronize()
+    t0, calls = time.perf_counter(), 0
+    while (time.perf_counter() - t0) * 1e3 &lt; 100 or calls &lt; 2:
+        fn()
+        torch.cuda.synchronize()
+        calls += 1
+    est_ms = (time.perf_counter() - t0) * 1e3 / calls      <span class="c"># includes host overhead: an upper bound</span>
+    n = min(max_samples, max(min_samples, math.ceil(min_ms / est_ms)))
+
+    starts = [torch.cuda.Event(enable_timing=True) for _ in range(n)]
+    ends = [torch.cuda.Event(enable_timing=True) for _ in range(n)]
+    for i in range(n):
+        flush.zero_()          <span class="c"># evict A, B, C from L2; the CPU queues the call while the GPU writes</span>
+        starts[i].record()
+        fn()
+        ends[i].record()
+    torch.cuda.synchronize()   <span class="c"># one sync for all samples</span>
+    return [s.elapsed_time(e) for s, e in zip(starts, ends)]
+
+
+def summarize(times: list[float]) -&gt; dict:
+    deciles = statistics.quantiles(times, n=10, method="inclusive")
+    return {"median_ms": statistics.median(times), "p20_ms": deciles[1], "p80_ms": deciles[7], "n": len(times)}
+
+
+def check(out: torch.Tensor, ref: torch.Tensor, K: int) -&gt; tuple[bool, float]:
+    """Same tolerance as tests/test_gemm.py."""
+    atol = 1e-6 * max(1.0, abs(ALPHA)) * max(K, 1024)
+    err = (out - ref).abs().max().item() if out.numel() else 0.0
+    return torch.allclose(out, ref, rtol=1e-3, atol=atol), err
+
+
+<span class="c"># ---------------------------------------------------------------- one shape</span>
+def bench_shape(M: int, N: int, K: int, kernels: list[str], flush, min_ms: float, peak: float | None) -&gt; list[dict]:
+    torch.manual_seed(0)
+    A = torch.randn(M, K, device="cuda")      <span class="c"># random data: zeros draw less power and run faster</span>
+    B = torch.randn(K, N, device="cuda")
+    C = torch.randn(M, N, device="cuda")
+    flop = 2.0 * M * N * K                     <span class="c"># BLAS convention: K multiplies + K adds per element of C</span>
+
+    def cublas():
+        return torch.addmm(C, A, B, beta=BETA, alpha=ALPHA)
+
+    ref = cublas()
+    before = summarize(gpu_times(cublas, flush, min_ms))
+    rows = [{"kernel": "cuBLAS", "ok": True, "err": 0.0, **before}]
+    for name in kernels:
+        fn = gemm.KERNELS[name]
+
+        def call(fn=fn):
+            return fn(A, B, C, ALPHA, BETA)
+
+        ok, err = check(call(), ref, K)        <span class="c"># correctness gate: never time a wrong kernel</span>
+        stats = summarize(gpu_times(call, flush, min_ms)) if ok else {"median_ms": math.nan, "p20_ms": math.nan, "p80_ms": math.nan, "n": 0}
+        rows.append({"kernel": name, "ok": ok, "err": err, **stats})
+    after = summarize(gpu_times(cublas, flush, min_ms))
+
+    drift = abs(after["median_ms"] - before["median_ms"]) / before["median_ms"]
+    base_ms = (before["median_ms"] + after["median_ms"]) / 2
+    for r in rows:
+        t = r["median_ms"]
+        r.update(M=M, N=N, K=K, alpha=ALPHA, beta=BETA, cublas_drift=round(drift, 4),
+                 tflops=flop / (t * 1e-3) / 1e12,
+                 pct_peak=100 * flop / (t * 1e-3) / 1e12 / peak if peak else math.nan,
+                 pct_cublas=100 * base_ms / t,
+                 spread=(r["p80_ms"] - r["p20_ms"]) / t)
+    return rows
+
+
+def print_rows(rows: list[dict]) -&gt; None:
+    M, N, K = rows[0]["M"], rows[0]["N"], rows[0]["K"]
+    print(f"\n{M} x {N} x {K}")
+    for r in rows:
+        if not r["ok"]:
+            print(f"  {r['kernel']:12s}  FAIL: max abs error {r['err']:.3g}, not timed")
+            continue
+        noisy = "  noisy" if r["spread"] &gt; NOISE_LIMIT else ""
+        print(f"  {r['kernel']:12s} {r['median_ms']:10.4f} ms  [{r['p20_ms']:.4f}, {r['p80_ms']:.4f}]  n={r['n']:&lt;5d}"
+              f"{r['tflops']:7.2f} TFLOP/s {r['pct_peak']:6.1f} % peak {r['pct_cublas']:7.1f} % cuBLAS{noisy}")
+    drift = rows[0]["cublas_drift"]
+    if drift &gt; DRIFT_LIMIT:
+        print(f"  warning: cuBLAS changed by {100 * drift:.1f} % during this shape (clock, heat, or another process)")
+
+
+peak = next((v for k, v in PEAK_TFLOPS.items() if k in torch.cuda.get_device_name()), None)
+flush = torch.empty(L2_FLUSH_BYTES, dtype=torch.uint8, device="cuda")
+for M, N, K in SUITES["square"] + SUITES["odd"]:
+    print_rows(bench_shape(M, N, K, list(gemm.KERNELS), flush, 500.0, peak))</code></pre>
+          </figure>
+        </details>
+
+        <h3 class="ver" id="b9-v5"><span class="vn">v5</span>Ghi lại và so sánh</h3>
+        <figure class="code">
+          <figcaption>Đầu file: docstring, import, đường dẫn tới gemm</figcaption>
+<pre><code>"""Benchmark the kernels in gemm.KERNELS against cuBLAS (torch.addmm). FP32, TF32 off.
+
+One sample = the GPU time of one op call: a CUDA event before the call and one after it,
+on the current stream, with a cold L2 cache. The time includes the C.clone() in run_gemm;
+torch.addmm also copies C into its output, so both sides do the same work.
+
+Usage (repo root, env cxx, after script/build.sh release):
+    python benchmarks/benchmark_gemm.py                          <span class="c"># suite "square", all kernels</span>
+    python benchmarks/benchmark_gemm.py --suite odd --kernels naive
+    python benchmarks/benchmark_gemm.py --shape 1000 3000 2000   <span class="c"># one shape: M N K</span>
+    python benchmarks/benchmark_gemm.py --csv benchmarks/results/$(git rev-parse --short HEAD).csv
+"""
+import argparse
+import csv
+import datetime
+import math
+import os
+import statistics
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+import torch
+import triton
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "torch_ext"))
+import gemm  <span class="c"># noqa: E402</span>
+
+ROOT = Path(gemm.__file__).resolve().parents[2]   <span class="c"># the repo, for git</span>
+
+torch.backends.cuda.matmul.allow_tf32 = False      <span class="c"># cuBLAS in full FP32, like the kernels</span></code></pre>
+        </figure>
+        <figure class="code">
+          <figcaption>Thêm sau SUITES</figcaption>
+<pre><code><span class="c"># ---------------------------------------------------------------- environment</span>
+def run(*cmd: str) -&gt; str:
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT, timeout=10).stdout.strip()
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+
+
+def smi(query: str) -&gt; str:
+    """One value from nvidia-smi for the current GPU ('' if nvidia-smi is missing)."""
+    bus = torch.cuda.get_device_properties(torch.cuda.current_device()).pci_bus_id
+    out = run("nvidia-smi", f"--query-gpu=pci.bus,{query}", "--format=csv,noheader,nounits")
+    for line in out.splitlines():
+        bus_hex, _, value = line.partition(", ")
+        if int(bus_hex, 16) == bus:
+            return value
+    return ""
+
+
+def environment() -&gt; dict:
+    dirty = run("git", "status", "--porcelain", "--", "csrc", "include", "torch_ext", "build.toml")
+    return {
+        "date": datetime.datetime.now().isoformat(timespec="seconds"),
+        "gpu": torch.cuda.get_device_name(),
+        "driver": smi("driver_version"),
+        "cuda": torch.version.cuda,
+        "torch": torch.__version__,
+        "triton": triton.__version__,
+        "commit": run("git", "rev-parse", "--short", "HEAD") + ("+dirty" if dirty else ""),
+        "build": os.environ.get("SUPERCUDA_BUILD", "release"),
+    }
+
+
+def other_gpu_processes() -&gt; list[str]:
+    out = run("nvidia-smi", "--query-compute-apps=pid,process_name", "--format=csv,noheader")
+    return [line for line in out.splitlines() if line and int(line.split(",")[0]) != os.getpid()]</code></pre>
+        </figure>
+        <figure class="code">
+          <figcaption>Thay phần cuối file bằng main</figcaption>
+<pre><code><span class="c"># ---------------------------------------------------------------- main</span>
+def main() -&gt; None:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--suite", choices=SUITES, default="square")
+    ap.add_argument("--shape", type=int, nargs=3, metavar=("M", "N", "K"), help="one shape instead of a suite")
+    ap.add_argument("--kernels", default=",".join(gemm.KERNELS), help="comma-separated names from gemm.KERNELS")
+    ap.add_argument("--min-ms", type=float, default=500.0, help="measured GPU time per kernel and shape")
+    ap.add_argument("--csv", type=Path, help="append one row per kernel and shape to this file")
+    args = ap.parse_args()
+
+    kernels = [k for k in args.kernels.split(",") if k]
+    unknown = set(kernels) - set(gemm.KERNELS)
+    if unknown:
+        ap.error(f"unknown kernels {sorted(unknown)}; gemm.KERNELS has {list(gemm.KERNELS)}")
+    shapes = [tuple(args.shape)] if args.shape else SUITES[args.suite]
+
+    env = environment()
+    peak = next((v for k, v in PEAK_TFLOPS.items() if k in env["gpu"]), None)
+    print(" | ".join(f"{k} {v}" for k, v in env.items()))
+    print(f"TF32 off | L2 flushed before each sample | FP32 peak {peak} TFLOP/s")
+    others = other_gpu_processes()
+    if others:
+        print(f"warning: other processes use the GPU: {others}")
+    if env["build"] != "release":
+        print("warning: not a release build: the numbers mean nothing")
+
+    flush = torch.empty(L2_FLUSH_BYTES, dtype=torch.uint8, device="cuda")
+    all_rows = []
+    for M, N, K in shapes:
+        rows = bench_shape(M, N, K, kernels, flush, args.min_ms, peak)
+        print_rows(rows)
+        all_rows += [{**env, **r} for r in rows]
+
+    if args.csv:
+        args.csv.parent.mkdir(parents=True, exist_ok=True)
+        new = not args.csv.exists()
+        with args.csv.open("a", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=list(all_rows[0]))
+            if new:
+                w.writeheader()
+            w.writerows(all_rows)
+        print(f"\n{len(all_rows)} rows -&gt; {args.csv}")
+
+
+if __name__ == "__main__":
+    main()</code></pre>
+        </figure>
+        <p>Trong <code>bench_shape</code>, thêm <code>sm_mhz = smi("clocks.sm")</code> và trường <code>sm_clock_mhz=sm_mhz</code>. Trong <code>print_rows</code>, in clock đó ở dòng đầu của mỗi shape. File đầy đủ nằm ở cuối phiên bản này.</p>
+        <div class="cmd"><pre><code>python benchmarks/benchmark_gemm.py --csv benchmarks/results/$(git rev-parse --short HEAD).csv
+python benchmarks/benchmark_gemm.py --suite odd --kernels <span data-k>naive</span></code></pre><button type="button" class="copy">Chép</button></div>
+        <figure class="out"><figcaption>Output, ngày 27/11/2026</figcaption>
+<pre><code>date 2026-11-27T17:02:39 | gpu NVIDIA GeForce RTX 5060 Ti | driver 615.71.09 | cuda 13.4 | torch 2.15.0+cu134 | triton 3.9.0 | commit a7c5fc3 | build release
+TF32 off | L2 flushed before each sample | FP32 peak 23.7 TFLOP/s
+
+256 x 256 x 256   SM clock 2827 MHz
+  cuBLAS           0.0143 ms  [0.0143, 0.0143]  n=1000    2.34 TFLOP/s    9.9 % peak   100.0 % cuBLAS
+  naive            0.2007 ms  [0.2007, 0.2007]  n=1000    0.17 TFLOP/s    0.7 % peak     7.1 % cuBLAS
+
+512 x 512 x 512   SM clock 2812 MHz
+  cuBLAS           0.0389 ms  [0.0369, 0.0389]  n=1000    6.90 TFLOP/s   29.1 % peak   100.0 % cuBLAS  noisy
+  naive            1.5514 ms  [1.5507, 1.5524]  n=320     0.17 TFLOP/s    0.7 % peak     2.5 % cuBLAS
+
+1024 x 1024 x 1024   SM clock 2782 MHz
+  cuBLAS           0.1843 ms  [0.1822, 0.1864]  n=1000   11.65 TFLOP/s   49.2 % peak   100.0 % cuBLAS
+  naive           11.3807 ms  [11.2213, 11.3866]  n=45      0.19 TFLOP/s    0.8 % peak     1.6 % cuBLAS
+
+2048 x 2048 x 2048   SM clock 2685 MHz
+  cuBLAS           1.1663 ms  [1.1591, 1.1738]  n=441    14.73 TFLOP/s   62.2 % peak    99.8 % cuBLAS
+  naive           89.0097 ms  [88.9308, 89.1117]  n=10      0.19 TFLOP/s    0.8 % peak     1.3 % cuBLAS
+
+4096 x 4096 x 4096   SM clock 2542 MHz
+  cuBLAS           8.8800 ms  [8.7614, 8.9596]  n=58     15.48 TFLOP/s   65.3 % peak    99.9 % cuBLAS
+  naive          710.2739 ms  [710.1145, 710.4580]  n=10      0.19 TFLOP/s    0.8 % peak     1.2 % cuBLAS
+
+10 rows -&gt; benchmarks/results/a7c5fc3.csv</code></pre>
+        </figure>
+        <ul>
+          <li><strong>Dòng đầu của output:</strong> GPU, driver, phiên bản và commit. Thiếu các thông tin này, hai tuần sau bạn không biết một con số thuộc kernel nào.</li>
+          <li><code>+dirty</code> xuất hiện khi <code>csrc/</code>, <code>include/</code>, <code>torch_ext/</code> hoặc <code>build.toml</code> có thay đổi chưa commit.</li>
+          <li><strong>Cảnh báo process khác:</strong> ngày 27/11/2026, một lần chạy <code>pytest tests</code> giữ GPU ở 100 % hơn 10 phút. Số đo trong lúc đó là số sai.</li>
+          <li><code>--csv</code> thêm dòng vào cuối file, không ghi đè. Mỗi dòng có đủ môi trường và kết quả.</li>
+          <li>Không cần <code>PYTHONPATH</code> nữa: dòng <code>sys.path.insert</code> thêm <code>torch_ext/</code> vào đường dẫn import.</li>
+        </ul>
+
+        <h3>So sánh hai lần chạy: <code>compare.py</code></h3>
+        <figure class="code">
+          <figcaption>benchmarks/compare.py (file mới)</figcaption>
+<pre><code>"""Compare two CSV files from benchmark_gemm.py: python compare.py old.csv new.csv"""
+import csv, sys
+
+def load(path):
+    with open(path) as f:
+        return {(r["kernel"], r["M"], r["N"], r["K"]): r for r in csv.DictReader(f)}
+
+old, new = load(sys.argv[1]), load(sys.argv[2])
+print(f"{'kernel':12s} {'M x N x K':&gt;20s} {'old ms':&gt;10s} {'new ms':&gt;10s} {'new/old':&gt;8s}  verdict")
+for key in sorted(old.keys() &amp; new.keys(), key=lambda k: (int(k[1]), k[0])):
+    o, n = old[key], new[key]
+    if o["ok"] != "True" or n["ok"] != "True":
+        continue
+    ratio = float(n["median_ms"]) / float(o["median_ms"])
+    <span class="c"># Real only if the two [p20, p80] intervals do not overlap and the change is above 2 %.</span>
+    apart = float(n["p80_ms"]) &lt; float(o["p20_ms"]) or float(n["p20_ms"]) &gt; float(o["p80_ms"])
+    verdict = ("faster" if ratio &lt; 1 else "slower") if apart and abs(ratio - 1) &gt; 0.02 else "same (noise)"
+    print(f"{key[0]:12s} {' x '.join(key[1:]):&gt;20s} {float(o['median_ms']):10.4f} {float(n['median_ms']):10.4f} {ratio:8.3f}  {verdict}")</code></pre>
+        </figure>
+        <div class="cmd"><pre><code>python benchmarks/compare.py benchmarks/results/run1.csv benchmarks/results/run2.csv</code></pre><button type="button" class="copy">Chép</button></div>
+        <figure class="out"><figcaption>Output: cùng một mã, chạy hai lần liền nhau</figcaption>
+<pre><code>kernel                  M x N x K     old ms     new ms  new/old  verdict
+cuBLAS            256 x 256 x 256     0.0143     0.0143    1.000  same (noise)
+naive             256 x 256 x 256     0.2028     0.2007    0.990  same (noise)
+cuBLAS            512 x 512 x 512     0.0389     0.0389    0.999  same (noise)
+naive             512 x 512 x 512     1.5605     1.5595    0.999  same (noise)
+cuBLAS         1024 x 1024 x 1024     0.1843     0.1843    1.000  same (noise)
+naive          1024 x 1024 x 1024    11.5531    11.4544    0.991  same (noise)
+cuBLAS         2048 x 2048 x 2048     1.1694     1.1664    0.997  same (noise)
+naive          2048 x 2048 x 2048    91.0771    90.3726    0.992  same (noise)
+cuBLAS         4096 x 4096 x 4096     9.0486     8.9716    0.991  same (noise)
+naive          4096 x 4096 x 4096   727.2129   720.0713    0.990  same (noise)</code></pre>
+        </figure>
+        <ul>
+          <li>Hai lần chạy cùng một mã lệch nhau tới 1 %. Ở naive 4096³, khoảng [p20, p80] của mỗi lần chỉ rộng 0.03 %, và hai khoảng không chồng lên nhau. Nếu chỉ nhìn khoảng, bạn kết luận sai rằng lần 2 nhanh hơn.</li>
+          <li>Quy tắc của <code>compare.py</code>: một thay đổi là thật khi hai khoảng không chồng lên nhau <strong>và</strong> chênh lệch lớn hơn 2 %.</li>
+          <li>Với một thay đổi nhỏ hơn 2 %, chạy mỗi phiên bản 3 lần, xen kẽ (A, B, A, B, A, B), rồi so sánh các median.</li>
+        </ul>
+
+        <h3 id="b9-run">Quy trình một lần đo</h3>
+        <ol class="plain">
+          <li>Build bản release: <code>script/build.sh release</code>.</li>
+          <li>Chạy test: <code>python -m pytest tests -q</code>. Không đo kernel chưa pass test.</li>
+          <li>Kiểm tra GPU: <code>nvidia-smi --query-compute-apps=pid,name --format=csv</code>. Danh sách phải rỗng.</li>
+          <li>Tuỳ chọn: khoá clock (lệnh bên dưới). Khi chạy liên tục, GPU chạm giới hạn 180 W, và clock giảm từ 2602 MHz xuống 2475 MHz trong 30 giây.</li>
+          <li>Chạy benchmark hai lần, mỗi lần ghi vào một file CSV.</li>
+          <li>So sánh hai file bằng <code>compare.py</code>. Nếu có dòng khác <code>same (noise)</code>, máy chưa ổn định: tìm nguyên nhân trước khi đo kernel mới.</li>
+        </ol>
+        <div class="cmd"><pre><code>sudo nvidia-smi -lgc 2400,2400                  <span class="c"># khoá clock SM ở 2400 MHz</span>
+nvidia-smi --query-gpu=clocks.sm --format=csv   <span class="c"># kiểm tra trong lúc benchmark chạy</span>
+sudo nvidia-smi -rgc                            <span class="c"># mở khoá sau khi đo xong</span></code></pre><button type="button" class="copy">Chép</button></div>
+        <p>Bạn tự chạy các lệnh <code>sudo</code>: chúng đổi clock cho mọi chương trình, tới khi bạn chạy <code>-rgc</code>. Mình chưa thử <code>-lgc</code> trên máy này. Nếu driver từ chối lệnh, bỏ bước 4 và dựa vào cảnh báo cuBLAS trước và sau.</p>
+
+        <h3 id="b9-check">Tự kiểm tra</h3>
+        <ol class="plain">
+          <li>Chạy hai lần. Median của mọi dòng phải lệch nhau dưới 2 %. Bản đáp án: 0.1 % đến 1 %.</li>
+          <li>So với <code>triton.testing.do_bench(fn, return_mode="median")</code> ở 1024³: lệch dưới 2 %. Bản đáp án: 11.38 ms, do_bench: 11.40 ms.</li>
+          <li>Thêm vào <code>KERNELS</code> một kernel sai. Dòng của kernel đó phải in <code>FAIL</code>.</li>
+        </ol>
+
+        <details class="answer" id="b9-answer">
+          <summary>Đáp án: toàn bộ file sau phiên bản 5</summary>
+          <figure class="code">
+<pre><code>"""Benchmark the kernels in gemm.KERNELS against cuBLAS (torch.addmm). FP32, TF32 off.
+
+One sample = the GPU time of one op call: a CUDA event before the call and one after it,
+on the current stream, with a cold L2 cache. The time includes the C.clone() in run_gemm;
+torch.addmm also copies C into its output, so both sides do the same work.
+
+Usage (repo root, env cxx, after script/build.sh release):
+    python benchmarks/benchmark_gemm.py                          <span class="c"># suite "square", all kernels</span>
+    python benchmarks/benchmark_gemm.py --suite odd --kernels naive
+    python benchmarks/benchmark_gemm.py --shape 1000 3000 2000   <span class="c"># one shape: M N K</span>
+    python benchmarks/benchmark_gemm.py --csv benchmarks/results/$(git rev-parse --short HEAD).csv
+"""
+import argparse
+import csv
+import datetime
+import math
+import os
+import statistics
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+import torch
+import triton
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "torch_ext"))
+import gemm  <span class="c"># noqa: E402</span>
+
+ROOT = Path(gemm.__file__).resolve().parents[2]   <span class="c"># the repo, for git</span>
+
+torch.backends.cuda.matmul.allow_tf32 = False      <span class="c"># cuBLAS in full FP32, like the kernels</span>
+
+ALPHA, BETA = 0.5, -0.1         <span class="c"># not 1 and 0: the kernel must do all of alpha * A @ B + beta * C</span>
+L2_FLUSH_BYTES = 256 * 2**20    <span class="c"># 8 x the 32 MiB L2 of the RTX 5060 Ti</span>
+DRIFT_LIMIT = 0.03              <span class="c"># cuBLAS before vs after the kernels: more than 3 % = the GPU changed</span>
+NOISE_LIMIT = 0.05              <span class="c"># (p80 - p20) / median above 5 % = a noisy measurement</span>
+
+<span class="c"># FP32 peak without tensor cores, from the spec sheet: SMs x 128 lanes x 2 FLOP x boost clock.</span>
+PEAK_TFLOPS = {"RTX 5060 Ti": 23.7, "A10": 31.2}
+
+SUITES = {
+    "square": [(n, n, n) for n in (256, 512, 1024, 2048, 4096)],
+    "odd": [(1000, 1000, 1000), (1023, 1025, 1027), (3000, 2000, 1000)],
+    "llm": [(m, 4096, 4096) for m in (1, 16, 128, 2048)] + [(2048, 14336, 4096), (2048, 4096, 14336)],
+}
+
+
+<span class="c"># ---------------------------------------------------------------- environment</span>
+def run(*cmd: str) -&gt; str:
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT, timeout=10).stdout.strip()
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+
+
+def smi(query: str) -&gt; str:
+    """One value from nvidia-smi for the current GPU ('' if nvidia-smi is missing)."""
+    bus = torch.cuda.get_device_properties(torch.cuda.current_device()).pci_bus_id
+    out = run("nvidia-smi", f"--query-gpu=pci.bus,{query}", "--format=csv,noheader,nounits")
+    for line in out.splitlines():
+        bus_hex, _, value = line.partition(", ")
+        if int(bus_hex, 16) == bus:
+            return value
+    return ""
+
+
+def environment() -&gt; dict:
+    dirty = run("git", "status", "--porcelain", "--", "csrc", "include", "torch_ext", "build.toml")
+    return {
+        "date": datetime.datetime.now().isoformat(timespec="seconds"),
+        "gpu": torch.cuda.get_device_name(),
+        "driver": smi("driver_version"),
+        "cuda": torch.version.cuda,
+        "torch": torch.__version__,
+        "triton": triton.__version__,
+        "commit": run("git", "rev-parse", "--short", "HEAD") + ("+dirty" if dirty else ""),
+        "build": os.environ.get("SUPERCUDA_BUILD", "release"),
+    }
+
+
+def other_gpu_processes() -&gt; list[str]:
+    out = run("nvidia-smi", "--query-compute-apps=pid,process_name", "--format=csv,noheader")
+    return [line for line in out.splitlines() if line and int(line.split(",")[0]) != os.getpid()]
+
+
+<span class="c"># ---------------------------------------------------------------- measurement</span>
+def gpu_times(fn, flush: torch.Tensor, min_ms: float, min_samples: int = 10, max_samples: int = 1000) -&gt; list[float]:
+    """Run fn many times. Return the GPU time of each call in ms."""
+    <span class="c"># Warm-up by time, not by count. The first call loads the kernel module and creates</span>
+    <span class="c"># the cuBLAS handle; the next calls raise the GPU clock from idle.</span>
+    fn()
+    torch.cuda.synchronize()
+    t0, calls = time.perf_counter(), 0
+    while (time.perf_counter() - t0) * 1e3 &lt; 100 or calls &lt; 2:
+        fn()
+        torch.cuda.synchronize()
+        calls += 1
+    est_ms = (time.perf_counter() - t0) * 1e3 / calls      <span class="c"># includes host overhead: an upper bound</span>
+    n = min(max_samples, max(min_samples, math.ceil(min_ms / est_ms)))
+
+    starts = [torch.cuda.Event(enable_timing=True) for _ in range(n)]
+    ends = [torch.cuda.Event(enable_timing=True) for _ in range(n)]
+    for i in range(n):
+        flush.zero_()          <span class="c"># evict A, B, C from L2; the CPU queues the call while the GPU writes</span>
+        starts[i].record()
+        fn()
+        ends[i].record()
+    torch.cuda.synchronize()   <span class="c"># one sync for all samples</span>
+    return [s.elapsed_time(e) for s, e in zip(starts, ends)]
+
+
+def summarize(times: list[float]) -&gt; dict:
+    deciles = statistics.quantiles(times, n=10, method="inclusive")
+    return {"median_ms": statistics.median(times), "p20_ms": deciles[1], "p80_ms": deciles[7], "n": len(times)}
+
+
+def check(out: torch.Tensor, ref: torch.Tensor, K: int) -&gt; tuple[bool, float]:
+    """Same tolerance as tests/test_gemm.py."""
+    atol = 1e-6 * max(1.0, abs(ALPHA)) * max(K, 1024)
+    err = (out - ref).abs().max().item() if out.numel() else 0.0
+    return torch.allclose(out, ref, rtol=1e-3, atol=atol), err
+
+
+<span class="c"># ---------------------------------------------------------------- one shape</span>
+def bench_shape(M: int, N: int, K: int, kernels: list[str], flush, min_ms: float, peak: float | None) -&gt; list[dict]:
+    torch.manual_seed(0)
+    A = torch.randn(M, K, device="cuda")      <span class="c"># random data: zeros draw less power and run faster</span>
+    B = torch.randn(K, N, device="cuda")
+    C = torch.randn(M, N, device="cuda")
+    flop = 2.0 * M * N * K                     <span class="c"># BLAS convention: K multiplies + K adds per element of C</span>
+
+    def cublas():
+        return torch.addmm(C, A, B, beta=BETA, alpha=ALPHA)
+
+    ref = cublas()
+    before = summarize(gpu_times(cublas, flush, min_ms))
+    rows = [{"kernel": "cuBLAS", "ok": True, "err": 0.0, **before}]
+    for name in kernels:
+        fn = gemm.KERNELS[name]
+
+        def call(fn=fn):
+            return fn(A, B, C, ALPHA, BETA)
+
+        ok, err = check(call(), ref, K)        <span class="c"># correctness gate: never time a wrong kernel</span>
+        stats = summarize(gpu_times(call, flush, min_ms)) if ok else {"median_ms": math.nan, "p20_ms": math.nan, "p80_ms": math.nan, "n": 0}
+        rows.append({"kernel": name, "ok": ok, "err": err, **stats})
+    after = summarize(gpu_times(cublas, flush, min_ms))
+
+    drift = abs(after["median_ms"] - before["median_ms"]) / before["median_ms"]
+    base_ms = (before["median_ms"] + after["median_ms"]) / 2
+    sm_mhz = smi("clocks.sm")
+    for r in rows:
+        t = r["median_ms"]
+        r.update(M=M, N=N, K=K, alpha=ALPHA, beta=BETA, sm_clock_mhz=sm_mhz, cublas_drift=round(drift, 4),
+                 tflops=flop / (t * 1e-3) / 1e12,
+                 pct_peak=100 * flop / (t * 1e-3) / 1e12 / peak if peak else math.nan,
+                 pct_cublas=100 * base_ms / t,
+                 spread=(r["p80_ms"] - r["p20_ms"]) / t)
+    return rows
+
+
+def print_rows(rows: list[dict]) -&gt; None:
+    M, N, K = rows[0]["M"], rows[0]["N"], rows[0]["K"]
+    print(f"\n{M} x {N} x {K}   SM clock {rows[0]['sm_clock_mhz']} MHz")
+    for r in rows:
+        if not r["ok"]:
+            print(f"  {r['kernel']:12s}  FAIL: max abs error {r['err']:.3g}, not timed")
+            continue
+        noisy = "  noisy" if r["spread"] &gt; NOISE_LIMIT else ""
+        print(f"  {r['kernel']:12s} {r['median_ms']:10.4f} ms  [{r['p20_ms']:.4f}, {r['p80_ms']:.4f}]  n={r['n']:&lt;5d}"
+              f"{r['tflops']:7.2f} TFLOP/s {r['pct_peak']:6.1f} % peak {r['pct_cublas']:7.1f} % cuBLAS{noisy}")
+    drift = rows[0]["cublas_drift"]
+    if drift &gt; DRIFT_LIMIT:
+        print(f"  warning: cuBLAS changed by {100 * drift:.1f} % during this shape (clock, heat, or another process)")
+
+
+<span class="c"># ---------------------------------------------------------------- main</span>
+def main() -&gt; None:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--suite", choices=SUITES, default="square")
+    ap.add_argument("--shape", type=int, nargs=3, metavar=("M", "N", "K"), help="one shape instead of a suite")
+    ap.add_argument("--kernels", default=",".join(gemm.KERNELS), help="comma-separated names from gemm.KERNELS")
+    ap.add_argument("--min-ms", type=float, default=500.0, help="measured GPU time per kernel and shape")
+    ap.add_argument("--csv", type=Path, help="append one row per kernel and shape to this file")
+    args = ap.parse_args()
+
+    kernels = [k for k in args.kernels.split(",") if k]
+    unknown = set(kernels) - set(gemm.KERNELS)
+    if unknown:
+        ap.error(f"unknown kernels {sorted(unknown)}; gemm.KERNELS has {list(gemm.KERNELS)}")
+    shapes = [tuple(args.shape)] if args.shape else SUITES[args.suite]
+
+    env = environment()
+    peak = next((v for k, v in PEAK_TFLOPS.items() if k in env["gpu"]), None)
+    print(" | ".join(f"{k} {v}" for k, v in env.items()))
+    print(f"TF32 off | L2 flushed before each sample | FP32 peak {peak} TFLOP/s")
+    others = other_gpu_processes()
+    if others:
+        print(f"warning: other processes use the GPU: {others}")
+    if env["build"] != "release":
+        print("warning: not a release build: the numbers mean nothing")
+
+    flush = torch.empty(L2_FLUSH_BYTES, dtype=torch.uint8, device="cuda")
+    all_rows = []
+    for M, N, K in shapes:
+        rows = bench_shape(M, N, K, kernels, flush, args.min_ms, peak)
+        print_rows(rows)
+        all_rows += [{**env, **r} for r in rows]
+
+    if args.csv:
+        args.csv.parent.mkdir(parents=True, exist_ok=True)
+        new = not args.csv.exists()
+        with args.csv.open("a", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=list(all_rows[0]))
+            if new:
+                w.writeheader()
+            w.writerows(all_rows)
+        print(f"\n{len(all_rows)} rows -&gt; {args.csv}")
+
+
+if __name__ == "__main__":
+    main()</code></pre>
+          </figure>
+        </details>
+
+        <details class="guide" id="b9-ref">
+          <summary><span class="sum-title">Tra cứu: ba công cụ chuẩn và mười cái bẫy</span><span class="sum-sub">Đọc sau khi bạn viết xong phiên bản 5</span></summary>
+          <div class="guide-body">
+            <p>Năm phiên bản trên làm theo các quy tắc chung của ba công cụ: nvbench (NVIDIA, C++), <code>triton.testing.do_bench</code> (Triton dùng hàm này để autotune kernel) và <code>torch.utils.benchmark</code> (PyTorch).</p>
+            <div class="tw"><table>
+              <thead><tr><th>Việc</th><th>nvbench</th><th>do_bench</th><th>torch.utils.benchmark</th><th>Phiên bản 5</th></tr></thead>
+              <tbody>
+                <tr><td>Đồng hồ</td><td>CUDA event</td><td>CUDA event</td><td>Đồng hồ CPU + synchronize</td><td>CUDA event</td></tr>
+                <tr><td>Warm-up</td><td>Có</td><td>Theo thời gian: 25 ms</td><td>Có</td><td>Theo thời gian: 100 ms</td></tr>
+                <tr><td>Flush L2</td><td>Có (chế độ cold)</td><td>Có: ghi 256 MB</td><td>Không</td><td>Có: ghi 256 MiB</td></tr>
+                <tr><td>Số mẫu</td><td>Tới khi nhiễu &lt; 0.5 %; ít nhất 10 mẫu và 0.5 s</td><td>Đủ 100 ms; kernel 0.7 s chỉ có 1 mẫu</td><td>Đủ 0.2 s</td><td>Ít nhất 10 mẫu và 0.5 s</td></tr>
+                <tr><td>Trả về</td><td>Mean và độ nhiễu</td><td>Mean (mặc định)</td><td>Median và IQR (p25 đến p75)</td><td>Median, p20, p80</td></tr>
+                <tr><td>Phát hiện clock giảm</td><td>Có: clock &lt; 75 %</td><td>Không</td><td>Không</td><td>cuBLAS trước và sau</td></tr>
+              </tbody>
+            </table></div>
+            <div class="tw"><table>
+              <thead><tr><th class="num">#</th><th>Bẫy</th><th>Đo sai</th><th>Đo đúng</th><th>Lệch</th><th>Sửa ở</th></tr></thead>
+              <tbody>
+                <tr><td class="num">1</td><td>Không synchronize</td><td><code>perf_counter()</code> quanh naive 1024³: 0.011 ms</td><td>CUDA event: 11.39 ms</td><td>1000 lần</td><td>v1</td></tr>
+                <tr><td class="num">2</td><td>Tính cả lần gọi đầu</td><td>cuBLAS 1024³, lần 1: 72.3 ms</td><td>Lần 5: 0.164 ms</td><td>440 lần</td><td>v1</td></tr>
+                <tr><td class="num">3</td><td>TF32 bật hoặc baseline 3 kernel</td><td><code>A @ B</code> TF32 4096³: 5.83 ms. <code>ALPHA * (A @ B) + BETA * C</code>: 9.60 ms</td><td><code>torch.addmm</code>, TF32 tắt: 8.92 ms</td><td>1.53 lần; 8 %</td><td>v1</td></tr>
+                <tr><td class="num">4</td><td>Không kiểm tra kết quả</td><td>Kernel sai vẫn có số đo</td><td><code>FAIL, not timed</code></td><td>—</td><td>v2</td></tr>
+                <tr><td class="num">5</td><td>Chỉ đo shape chia hết cho 32</td><td>Naive 1024³: 1.4 % cuBLAS</td><td>Naive 1023 × 1025 × 1027: 5.7 % cuBLAS</td><td>3 lần</td><td>v3</td></tr>
+                <tr><td class="num">6</td><td>L2 còn dữ liệu của lần trước</td><td>cuBLAS 512³: 0.0320 ms</td><td>Flush L2: 0.0369 ms</td><td>15 %</td><td>v4</td></tr>
+                <tr><td class="num">7</td><td>Kernel ngắn: GPU chờ CPU</td><td>cuBLAS 64³, event liên tiếp: 17.1 µs</td><td>Event + flush: 8.2 µs. CUDA graph: 4.5 µs</td><td>3.8 lần</td><td>v4</td></tr>
+                <tr><td class="num">8</td><td>Input toàn số 0</td><td>cuBLAS 4096³ <code>zeros</code>: 8.16 ms, 2760 MHz</td><td><code>randn</code>: 9.10 ms, 2505 MHz</td><td>11 %</td><td>v4</td></tr>
+                <tr><td class="num">9</td><td>Ít mẫu, dùng mean</td><td><code>do_bench</code> mặc định, naive 4096³: 1 mẫu</td><td>10 mẫu, median, [p20, p80]</td><td>Không biết nhiễu</td><td>v4</td></tr>
+                <tr><td class="num">10</td><td>Tin vào một lần chạy</td><td>Naive 4096³, lần 1: 727.2 ms</td><td>Lần 2: 720.1 ms</td><td>1 %</td><td>v5</td></tr>
+              </tbody>
+              <caption>RTX 5060 Ti, giới hạn công suất 180 W, L2 32 MiB, build release, ngày 27/11/2026.</caption>
+            </table></div>
+          </div>
+        </details>
+
+        <h3>Gọi .so hay gọi hàm Python?</h3>
         <div class="note">
           <p><strong>Dùng hàm Python</strong> <code>gemm.naive</code>. Hàm đó gọi đúng op nằm trong <code>gemm.so</code>. Không có cách gọi <code>.so</code> nào nhanh hơn.</p>
         </div>
@@ -804,10 +1955,6 @@ script/sanitizer.sh memcheck python -m pytest tests -q -x</code></pre><button ty
           <li>gemm.naive</li><li class="arrow">→</li>
           <li>torch.ops.gemm.naive</li><li class="arrow">→</li>
           <li class="end">gemm.so: naive_cuda → launcher → kernel</li>
-        </ul>
-        <ul class="flow" aria-label="Chương trình standalone">
-          <li>csrc/bin/gemm.out</li><li class="arrow">→</li>
-          <li class="end">launcher → kernel (không có Torch)</li>
         </ul>
         <div class="tw"><table>
           <thead><tr><th>M = N = K</th><th class="num">gemm.naive</th><th class="num">torch.ops.gemm.naive</th><th>Chênh lệch</th></tr></thead>
@@ -817,36 +1964,9 @@ script/sanitizer.sh memcheck python -m pytest tests -q -x</code></pre><button ty
             <tr><td>256</td><td class="num">204.9 · 205.2 µs</td><td class="num">204.8 · 204.4 µs</td><td>khoảng 0.4 µs</td></tr>
             <tr><td>1024</td><td class="num">11,444 · 11,917 µs</td><td class="num">11,956 · 12,380 µs</td><td>nhỏ hơn dao động giữa hai lần đo (4 %)</td></tr>
           </tbody>
-          <caption>Thời gian trung bình một lời gọi, có <code>torch.cuda.synchronize()</code> sau mỗi lời gọi. Mỗi ô là hai lần đo: 2000 lời gọi mỗi lần (100 ở 1024).</caption>
+          <caption>Đo ngày 16/11/2026. Thời gian trung bình một lời gọi, có <code>torch.cuda.synchronize()</code> sau mỗi lời gọi. Mỗi ô là hai lần đo.</caption>
         </table></div>
-        <ul>
-          <li>Wrapper Python thêm khoảng 0.3 µs.</li>
-          <li>Chi phí cố định của một lời gọi op là khoảng 9 µs: kiểm tra input, clone C, launch, synchronize. Đây là dòng M = N = K = 1.</li>
-          <li>Ở 1024, kernel chạy khoảng 11.4 ms. 9 µs là 0.08 % của thời gian đó.</li>
-          <li>Với kernel chạy dưới 100 µs, chi phí cố định là phần lớn. Khi đó lấy thời gian của riêng kernel từ nsys (bước 10).</li>
-        </ul>
-        <h3>Chạy benchmark</h3>
-        <div class="cmd"><pre><code>python benchmarks/benchmark_matmul.py
-python benchmarks/benchmark_matmul.py 1024 1024 1024 --kernels <span data-k>naive</span></code></pre><button type="button" class="copy">Chép</button></div>
-        <figure class="out"><figcaption>Output với kernel naive, hai kích thước đầu</figcaption>
-<pre><code>NVIDIA GeForce RTX 5060 Ti: FP32 peak 23.7 TFLOP/s, DRAM 448 GB/s, ridge point 52.9 FLOP/B
-
-1024 x 1024 x 1024   FLOP 2.147e+09   AI max 128 FLOP/B
-  cuBLAS              0.182 ms    11779.7 GFLOP/s   49.7 % peak
-  naive              11.406 ms      188.3 GFLOP/s    0.8 % peak     62.6 x cuBLAS
-
-2048 x 2048 x 2048   FLOP 1.718e+10   AI max 256 FLOP/B
-  cuBLAS              1.158 ms    14829.7 GFLOP/s   62.6 % peak
-  naive              89.800 ms      191.3 GFLOP/s    0.8 % peak     77.5 x cuBLAS</code></pre>
-        </figure>
-        <p>Script dùng <code>triton.testing.do_bench</code>: hàm này chạy warm-up, chạy nhiều lần, synchronize GPU, rồi trả median. Ba cột cần đọc: <code>ms</code>, <code>GFLOP/s</code> (bằng 2·M·N·K chia thời gian) và <code>x cuBLAS</code>.</p>
-        <h3>Bốn quy tắc khi đo thời gian</h3>
-        <ol class="plain">
-          <li>Chỉ đo bản release.</li>
-          <li>Một lời gọi kernel trả về ngay; GPU vẫn đang chạy. Không dùng <code>time.time()</code> quanh lời gọi nếu thiếu <code>torch.cuda.synchronize()</code>.</li>
-          <li>Bỏ các lần chạy đầu: lần đầu tạo CUDA context và nạp kernel.</li>
-          <li>So sánh các kernel ở cùng kích thước, cùng <code>alpha</code>, <code>beta</code>, và giữ TF32 tắt.</li>
-        </ol>
+        <p>Wrapper Python chỉ thêm khoảng 0.3 µs. Chi phí cố định của một lời gọi op là khoảng 9 µs (dòng M = N = K = 1). Ở 1024³, con số này chỉ là 0.08 % thời gian của kernel.</p>
         <label class="done"><input type="checkbox" id="done-9" data-done="9"> Xong bước 9</label>
       </section>
 
@@ -967,7 +2087,7 @@ verdict: memory-bound at L1: ncu reports it 97 % busy.
       <section id="buoc-12">
         <h2><span class="num">BƯỚC 12</span>Vòng lặp tối ưu</h2>
         <ol class="loop" aria-label="Sáu bước của một vòng lặp">
-          <li><strong>Đo baseline</strong><span>benchmark_matmul.py: ghi ms và GFLOP/s</span></li>
+          <li><strong>Đo baseline</strong><span>benchmark_gemm.py --csv: ghi ms, TFLOP/s, % cuBLAS</span></li>
           <li><strong>Tìm chỗ chậm</strong><span>torch.profiler hoặc nsys: kernel hay op?</span></li>
           <li><strong>Tìm nguyên nhân</strong><span>ncu và roofline.py: bộ nhớ, tính toán, hay occupancy?</span></li>
           <li><strong>Một giả thuyết, một thay đổi</strong><span>kernel mới trong file mới, bước 1 đến 5</span></li>
@@ -981,9 +2101,9 @@ verdict: memory-bound at L1: ncu reports it 97 % busy.
           <li>Ghi lại một dòng cho mỗi kernel. Dòng đầu của bảng dưới là kết quả hôm nay.</li>
         </ul>
         <div class="tw"><table>
-          <thead><tr><th>Kernel</th><th class="num">ms ở 1024</th><th class="num">GFLOP/s</th><th class="num">x cuBLAS</th><th>Giới hạn chính theo ncu</th><th>Giả thuyết kế tiếp</th></tr></thead>
+          <thead><tr><th>Kernel</th><th class="num">ms ở 1024³</th><th class="num">TFLOP/s</th><th class="num">% cuBLAS</th><th>Giới hạn chính theo ncu</th><th>Giả thuyết kế tiếp</th></tr></thead>
           <tbody>
-            <tr><td><code>naive</code></td><td class="num">11.406</td><td class="num">188.3</td><td class="num">62.6</td><td>Memory Throughput 97 %; 4 trong 32 byte mỗi sector</td><td>Truy cập coalesced</td></tr>
+            <tr><td><code>naive</code></td><td class="num">11.381</td><td class="num">0.19</td><td class="num">1.6</td><td>Memory Throughput 97 %; 4 trong 32 byte mỗi sector</td><td>Truy cập coalesced</td></tr>
             <tr><td><code data-k-next>kernel kế tiếp</code></td><td class="num">…</td><td class="num">…</td><td class="num">…</td><td>…</td><td>…</td></tr>
           </tbody>
         </table></div>
@@ -1000,7 +2120,8 @@ verdict: memory-bound at L1: ncu reports it 97 % busy.
             <tr><td>Build release</td><td><code>script/build.sh release</code></td></tr>
             <tr><td>Test</td><td><code>python -m pytest tests -q</code></td></tr>
             <tr><td>Lỗi bộ nhớ</td><td><code>script/sanitizer.sh memcheck python -m pytest tests -q -x</code></td></tr>
-            <tr><td>Benchmark</td><td><code>python benchmarks/benchmark_matmul.py</code></td></tr>
+            <tr><td>Benchmark</td><td><code>python benchmarks/benchmark_gemm.py --csv benchmarks/results/$(git rev-parse --short HEAD).csv</code></td></tr>
+            <tr><td>So sánh hai lần đo</td><td><code>python benchmarks/compare.py benchmarks/results/old.csv benchmarks/results/new.csv</code></td></tr>
             <tr><td>Timeline</td><td><code>script/nsys.sh <span data-k>naive</span>_1024 python benchmarks/profile_matmul.py --kernel <span data-k>naive</span></code></td></tr>
             <tr><td>Metric của một kernel</td><td><code>script/ncu.sh <span data-k>naive</span>_gemm <span data-k>naive</span>_1024 python benchmarks/profile_matmul.py --kernel <span data-k>naive</span></code></td></tr>
             <tr><td>Đọc báo cáo ncu</td><td><code>ncu --import reports/<span data-k>naive</span>_1024.ncu-repz --page details</code></td></tr>
